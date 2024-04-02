@@ -1,8 +1,7 @@
 export type BasisVector = string;
-export type BasisElement = BasisVector[];
 export interface MultiComponent {
     coefficient: number;
-    element: BasisElement;
+    vector: BasisVector;
 }
 export type MultiVector = MultiComponent[];
 export class ga {
@@ -42,6 +41,7 @@ export class ga {
     // change anything of the form ennnnnnnnn to one of the basis vectors
     public rebase(vector: BasisVector) {
         // remove duplicates first
+        console.log(vector);
         let swaps = 0;
         let check = true;
         while (check) {
@@ -80,10 +80,27 @@ export class ga {
             bIndex += 1;
         }
         if (bIndex === this.basis.length) {
-            return "e?";
+            return {basis: "e?", swaps, swaps2: 0};
         }
-        // ToDo work out the swizzle
-        return this.basis[bIndex];
+        const basis = this.basis[bIndex];
+        console.log(vector);
+        let swaps2 = 0;
+        for (let index = 0; index < vector.length; index++) {
+            if (basis[index] !== vector[index]) {
+                const vIndex = vector.indexOf(basis[index]);
+                swaps2 += vIndex - index;
+                vector = vector.substring(0, index) + basis[index] + vector.substring(index, vIndex) + vector.substring(vIndex + 1);
+                console.log({basis, vector});
+            }
+        }
+        return {basis, swaps, swaps2};
+    }
+    public wedge(m1: MultiComponent, m2: MultiComponent): MultiComponent {
+        const {basis, swaps, swaps2} = this.rebase(m1.vector + m2.vector.substring(1));
+        return {
+            coefficient: m1.coefficient * m2.coefficient * (swaps + swaps2 & 1 ? -1: 1),
+                    vector: basis
+            }
     }
     public meet(...args: MultiVector[]): MultiVector {
         return args[0];
