@@ -95,6 +95,7 @@ export class ga {
         }
         return {basis, swaps, swaps2};
     }
+    // wedge does just two multiVectors with coefficients
     public wedge(m1: MultiComponent, m2: MultiComponent): MultiComponent {
         const {basis, swaps, swaps2} = this.rebase(m1.vector + m2.vector.substring(1));
         return {
@@ -103,10 +104,24 @@ export class ga {
             }
     }
     public meet(...args: MultiVector[]): MultiVector {
+        const answer: MultiVector = [];
+        for (const arg of args) {
+
+        }
         return args[0];
     }
     public join(...args: MultiVector[]): MultiVector {
         return args[0];
+    }
+    public bits(i: number) {
+        let vector = "e";
+        const binary = i.toString(2);
+        const bl = binary.length;
+        const matches =Array.from(binary.matchAll(/1/g)).reverse()
+        for (const match of matches) {
+            vector += (bl - match.index!).toString();
+        }
+        return vector;
     }
 }
 
