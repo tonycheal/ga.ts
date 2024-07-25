@@ -21,6 +21,7 @@ export class Algebra {
         const {b, onesMap} = this.makeBasis();
         this.basis = b;
         this.onesMap = onesMap;
+        this.wedgeTable = this.makeWedgeTable();
     }
     public get degree() {
         return this.positive + this.negative + this.zero;
@@ -55,6 +56,46 @@ export class Algebra {
                 (a < b ? -1 : 1)
         );
         return {b, onesMap};
+    }
+    public makeWedgeTable() {
+        const t: CayleyTable = {}
+        for (let a = 0; a < 2**this.degree; a++) {
+            const ea = this.basis[a];
+            t[ea] = {}
+            for (let b=0; b < 2**this.degree; b++) {
+                const eb = this.basis[b];
+                const left = ea.substring(1).split("");
+                const right = eb.substring(1).split("");
+                // so might have, say [1,2] [2,3]
+                // repeats mean the answer is 0
+                // remaining numbers need sorting - swaps keep negating the answer
+                const result = left.concat(right);
+                let swaps = 0;
+                let swapped = true;
+                let zero = false;
+                let last = result.length - 1;
+                while (last > 0 && swapped && !zero) {
+                    swapped = false;
+                    for (let i = 0; i < last; i++) {
+                        const l = result[i], r = result[i+1];
+                        if (l === r) {
+                            zero = true;
+                        } else if (l > r) {
+                            result[i] = r; result[i+1] = l;
+                            swapped = true;
+                            swaps += 1;
+                        }
+                    }
+                    last -= 1;
+                }
+                if (zero) {
+                    t[ea][eb] = { basis: "0", sign: 1 }
+                } else {
+                    t[ea][eb] = { basis: "e" + result.join(""), sign: swaps & 1 ? -1 : 1}
+                }
+            }
+        }
+        return t;
     }
     public sortVector(v: MultiVector) {
         const sorted: MultiVector = {}
@@ -99,9 +140,6 @@ export class Algebra {
         return this.cayleyMul(a, b, this.wedgeTable);
     }
 }
-
-const cga3 = new Algebra();
-console.log(cga3.basis);
 
 export class GA {
     public vector: MultiVector;
