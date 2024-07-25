@@ -1,127 +1,120 @@
-export type BasisVector = string;
-export interface MultiComponent {
-    coefficient: number;
-    vector: BasisVector;
+export interface MultiVector { [key: string]: number}
+export interface CayleyTable {
+    [key: string]:
+        {
+            [key: string]:
+                { basis: string; sign: number }
+        }
 }
-export type MultiVector = MultiComponent[];
-export class ga {
+
+export class Algebra {
     public positive: number;
     public negative: number;
     public zero: number;
-    public basis: BasisVector[];
-    public get dimension() {
-        return this.positive + this.negative + this.zero;
-    }
+    public basis: string[];
+    public onesMap: number[][];
+    public wedgeTable: CayleyTable = {};
     constructor(positive: number = 3, negative: number = 1, zero: number = 0) {
         this.positive = positive;
         this.negative = negative;
         this.zero = zero;
-        this.basis = [];
-        this.setBasis();
+        const {b, onesMap} = this.makeBasis();
+        this.basis = b;
+        this.onesMap = onesMap;
     }
-    // Needs simplifying to a function to make a basis with more logic
-    // should allow for things like e4=e- + e+ and clever stuff like that
-    // i.e. more subtle basis vectors that simplify geometric object construction
-    public setBasis() {
-         // bad version, but it really doesn't matter?
-        for (let bits = 0; bits < (1<<this.dimension); bits ++) {
-            let vector = "e";
-            for (let bit = 0; bit < this.dimension; bit ++) {
-                if ((1<<bit) & bits)  {
-                    vector += (bit+1).toString();
+    public get degree() {
+        return this.positive + this.negative + this.zero;
+    }
+    public bits(n: number) {
+        const binary = n.toString(2).split("").reverse();
+        const ones: number[] = [];
+        binary.forEach((bit, index) => {
+            if (bit === "1") {
+                ones.push(index + 1);
+            }
+        });
+        return ones;
+    }
+    public makeBasis() {
+        const b: string[] = [];
+        const onesMap: number[][] = [];
+        const degree = this.degree;
+        const l = 2**degree;
+        for (let grade = 0; grade <= degree; grade ++) {
+            for (let i = 0; i < l; i++) {
+                const ones = this.bits(i);
+                onesMap.push(ones);
+                if (ones.length === grade) {
+                    b.push("e" + ones.join(""))
                 }
             }
-            this.basis.push(vector);
         }
-        this.basis.sort((a,b) =>
-            a.length != b.length ? a.length - b.length : a.localeCompare(b)
+        b.sort((a,b) =>
+            a.length != b.length ?
+                a.length - b.length :
+                (a < b ? -1 : 1)
         );
-        return this;
+        return {b, onesMap};
     }
-    // change anything of the form ennnnnnnnn to one of the basis vectors
-    public rebase(vector: BasisVector) {
-        // remove duplicates first
-        console.log(vector);
-        let swaps = 0;
-        let check = true;
-        while (check) {
-            // remove duplicates by swizzling the order
-            const repeats: {[key: string]: number } = {};
-            let pos = 1;
-            while (pos < vector.length && repeats[vector[pos]] === undefined) {
-                repeats[vector[pos]] = pos;
-                pos += 1;
+    public sortVector(v: MultiVector) {
+        const sorted: MultiVector = {}
+        for (const key of this.basis) {
+            if (v[key]) {
+                sorted[key] = v[key];
             }
-            if (pos < vector.length) {
-                // must have hit a duplicate at pos
-                const pos2 = repeats[vector[pos]];
-                swaps += pos - pos2 - 1;
-                vector = vector.substring(0, pos2)
-                    + vector.substring(pos2 + 1, pos)
-                    + vector.substring(pos + 1);
+        }
+        return sorted;
+    }
+    public cayleyMul(a: MultiVector, b: MultiVector, cayleyTable: CayleyTable) {
+        const answer: MultiVector = {};
+        for (const basisA in a) {
+            for (const basisB in b) {
+                const {basis, sign} = cayleyTable[basisA][basisB];
+                const n = sign * a[basisA] * b[basisB];
+                answer[basis] = answer[basis] ? answer[basis] + n : n;
+                if (!answer[basis]) {
+                    delete answer[basis]; // don't include 0s
+                }
+            }
+        }
+        return this.sortVector(answer);
+    }
+    public toString(v: MultiVector) {
+        let s = "";
+        for (const basis in v) {
+            const c = v[basis];
+            if (basis === "e") {
+                s += c.toString();
+            } else if (!s) {
+                s += c.toString() + basis;
+            } else if (c > 0) {
+                s += "+" + c.toString() + basis;
             } else {
-                check = false; // no more duplicates
-            }
-
-        }
-        // now find essentially the same basis vector - order might be different
-        // we know e.g. e321 might be e123 and all entries are different
-        // more swizzling will be implied
-        function binary(vector: string) {
-            let b = 0;
-            for (let pos = 1; pos < vector.length; pos++) {
-                b += 2**(Number(vector[pos]) - 1);
-            }
-            return b;
-        }
-        const bv = binary(vector);
-        let bIndex = 0;
-        while (bIndex < this.basis.length && binary(this.basis[bIndex]) !== bv) {
-            bIndex += 1;
-        }
-        if (bIndex === this.basis.length) {
-            return {basis: "e?", swaps, swaps2: 0};
-        }
-        const basis = this.basis[bIndex];
-        console.log(vector);
-        let swaps2 = 0;
-        for (let index = 0; index < vector.length; index++) {
-            if (basis[index] !== vector[index]) {
-                const vIndex = vector.indexOf(basis[index]);
-                swaps2 += vIndex - index;
-                vector = vector.substring(0, index) + basis[index] + vector.substring(index, vIndex) + vector.substring(vIndex + 1);
-                console.log({basis, vector});
+                s += c.toString() + basis;
             }
         }
-        return {basis, swaps, swaps2};
+        return s ? s: "0";
     }
-    // wedge does just two multiVectors with coefficients
-    public wedge(m1: MultiComponent, m2: MultiComponent): MultiComponent {
-        const {basis, swaps, swaps2} = this.rebase(m1.vector + m2.vector.substring(1));
-        return {
-            coefficient: m1.coefficient * m2.coefficient * (swaps + swaps2 & 1 ? -1: 1),
-                    vector: basis
-            }
-    }
-    public meet(...args: MultiVector[]): MultiVector {
-        const answer: MultiVector = [];
-        for (const arg of args) {
-
-        }
-        return args[0];
-    }
-    public join(...args: MultiVector[]): MultiVector {
-        return args[0];
-    }
-    public bits(i: number) {
-        let vector = "e";
-        const binary = i.toString(2);
-        const bl = binary.length;
-        const matches =Array.from(binary.matchAll(/1/g)).reverse()
-        for (const match of matches) {
-            vector += (bl - match.index!).toString();
-        }
-        return vector;
+    wedge(a: MultiVector, b: MultiVector) {
+        return this.cayleyMul(a, b, this.wedgeTable);
     }
 }
 
+const cga3 = new Algebra();
+console.log(cga3.basis);
+
+export class GA {
+    public vector: MultiVector;
+    public algebra: Algebra;
+    constructor(algebra: Algebra, vector: MultiVector = {}) {
+        this.algebra = algebra;
+        this.vector = vector;
+    }
+    // so you can say GA1
+    public toString() {
+        return this.algebra.toString(this.vector);
+    }
+    public wedge(b: GA) {
+        return new GA(this.algebra, this.algebra.wedge(this.vector, b.vector));
+    }
+}
