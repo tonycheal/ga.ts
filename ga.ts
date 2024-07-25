@@ -6,6 +6,7 @@ export interface CayleyTable {
                 { basis: string; sign: number }
         }
 }
+export interface DualTable { [key: string]: {basis: string, sign: number}}
 
 export class Algebra {
     public positive: number;
@@ -14,6 +15,9 @@ export class Algebra {
     public basis: string[];
     public onesMap: number[][];
     public wedgeTable: CayleyTable = {};
+    public antiWedgeTable: CayleyTable = {};
+    public leftDualTable: DualTable = {};
+    public rightDualTable: DualTable = {};
     constructor(positive: number = 3, negative: number = 1, zero: number = 0) {
         this.positive = positive;
         this.negative = negative;
@@ -22,6 +26,9 @@ export class Algebra {
         this.basis = b;
         this.onesMap = onesMap;
         this.wedgeTable = this.makeWedgeTable();
+        this.leftDualTable = this.makeDualTable("left");
+        this.rightDualTable = this.makeDualTable("right");
+        this.antiWedgeTable = this.makeAntiWedgeTable();
     }
     public get degree() {
         return this.positive + this.negative + this.zero;
@@ -97,6 +104,37 @@ export class Algebra {
         }
         return t;
     }
+    public makeAntiWedgeTable() {
+        const t: CayleyTable = {}
+        for (let a = 0; a < 2 ** this.degree; a++) {
+            const ea = this.basis[a];
+            t[ea] = {}
+            for (let b = 0; b < 2 ** this.degree; b++) {
+                const eb = this.basis[b];
+                const lea = this.leftDualTable[ea];
+                const leb = this.leftDualTable[eb];
+                const w = this.wedgeTable[lea.basis][leb.basis];
+                let rw = {basis: "0", sign: 1}
+                if (w.basis !== "0") {
+                    rw = this.rightDualTable[w.basis];
+                }
+                t[ea][eb] = {basis: rw.basis, sign: lea.sign * leb.sign * w.sign * rw.sign}
+            }
+        }
+        return t;
+    }
+    public makeDualTable(side: "left" | "right") {
+        const result: DualTable = {}
+        for (let a = 0; a < 2**this.degree; a++) {
+            const ea = this.basis[a];
+            const ed = this.basis[2**this.degree - 1 - a];
+            const sign = side == "left" ?
+                this.wedgeTable[ed][ea].sign :
+                this.wedgeTable[ea][ed].sign;
+            result[ea] = {basis: ed, sign}
+        }
+        return result;
+    }
     public sortVector(v: MultiVector) {
         const sorted: MultiVector = {}
         for (const key of this.basis) {
@@ -134,10 +172,16 @@ export class Algebra {
                 s += c.toString() + basis;
             }
         }
+        if (Object.keys(v).length > 1) {
+            s = "(" + s + ")";
+        }
         return s ? s: "0";
     }
-    wedge(a: MultiVector, b: MultiVector) {
+    public wedge(a: MultiVector, b: MultiVector) {
         return this.cayleyMul(a, b, this.wedgeTable);
+    }
+    public antiWedge(a: MultiVector, b: MultiVector) {
+        return this.cayleyMul(a, b, this.antiWedgeTable);
     }
 }
 
@@ -154,5 +198,8 @@ export class GA {
     }
     public wedge(b: GA) {
         return new GA(this.algebra, this.algebra.wedge(this.vector, b.vector));
+    }
+    public antiWedge(b: GA) {
+        return new GA(this.algebra, this.algebra.antiWedge(this.vector, b.vector));
     }
 }
