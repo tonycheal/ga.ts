@@ -18,6 +18,7 @@ export class Algebra {
     public antiWedgeTable: CayleyTable = {};
     public leftDualTable: DualTable = {};
     public rightDualTable: DualTable = {};
+    public geometricProductTable: CayleyTable = {};
     constructor(positive: number = 3, negative: number = 1, zero: number = 0) {
         this.positive = positive;
         this.negative = negative;
@@ -29,6 +30,7 @@ export class Algebra {
         this.leftDualTable = this.makeDualTable("left");
         this.rightDualTable = this.makeDualTable("right");
         this.antiWedgeTable = this.makeAntiWedgeTable();
+        this.geometricProductTable = this.makeGeometricProductTable();
     }
     public get degree() {
         return this.positive + this.negative + this.zero;
@@ -135,6 +137,62 @@ export class Algebra {
         }
         return result;
     }
+    public makeGeometricProductTable() {
+        const t: CayleyTable = {}
+        for (let a = 0; a < 2 ** this.degree; a++) {
+            const ea = this.basis[a];
+            t[ea] = {}
+            for (let b = 0; b < 2 ** this.degree; b++) {
+                const eb = this.basis[b];
+                const left = ea.substring(1).split("");
+                const right = eb.substring(1).split("");
+                const result = left.concat(right);
+                let swaps = 0;
+                let swapped = true;
+                let last = result.length - 1;
+                while (last > 0 && swapped) {
+                    swapped = false;
+                    for (let i = 0; i < last; i++) {
+                        const l = result[i], r = result[i+1];
+                       if (l > r) {
+                            result[i] = r; result[i+1] = l;
+                            swapped = true;
+                            swaps += 1;
+                        }
+                    }
+                    last -= 1;
+                }
+                // repeats give 0, 1, or -1  if zero, positive or negative
+                let result2 = "";
+                let index = 0;
+                while (index < result.length) {
+                    if (result[index] === result[index + 1]) {
+                        const bno = Number(result[index]);
+                        if (bno <= this.zero) {
+                            index = result.length;
+                            result2 = "0";
+                        } else if (bno <= this.zero + this.positive) {
+                            index += 2;
+                        } else {
+                            swaps += 1;
+                            index += 2;
+                        }
+                    } else {
+                        result2 += result[index];
+                        index += 1;
+                    }
+                }
+                {
+                    if (result2 === "0") {
+                        t[ea][eb] = { basis: result2, sign: 1}
+                    } else {
+                        t[ea][eb] = {basis: "e" + result2, sign: swaps & 1 ? -1 : 1}
+                    }
+                }
+            }
+        }
+        return t;
+    }
     public sortVector(v: MultiVector) {
         const sorted: MultiVector = {}
         for (const key of this.basis) {
@@ -182,6 +240,25 @@ export class Algebra {
     }
     public antiWedge(a: MultiVector, b: MultiVector) {
         return this.cayleyMul(a, b, this.antiWedgeTable);
+    }
+    public dumpTable(table: CayleyTable) {
+        const basis = this.basis;
+        let line = "";
+        const pad = (s: string) => s + " ".repeat(this.degree + 3 - s.length);
+        line += pad("");
+        for (const base of basis) {
+            line += pad(base);
+        }
+        console.log(line);
+        for (const a of basis) {
+            line = pad(a);
+            for (const b of basis) {
+                const x= table[a][b];
+                line += pad((x.sign < 0 ? "-" : "") + x.basis);
+            }
+            console.log(line);
+        }
+
     }
 }
 
