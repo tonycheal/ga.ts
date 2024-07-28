@@ -13,11 +13,11 @@ export class Algebra {
     public zero: number;
     public basis: string[];
     public onesMap: number[][];
+    public geometricProductTable: CayleyTable = {};
     public wedgeTable: CayleyTable = {};
     public antiWedgeTable: CayleyTable = {};
     public leftDualTable: DualTable = {};
     public rightDualTable: DualTable = {};
-    public geometricProductTable: CayleyTable = {};
     constructor(positive: number = 3, negative: number = 1, zero: number = 0) {
         this.positive = positive;
         this.negative = negative;
@@ -25,14 +25,11 @@ export class Algebra {
         const {b, onesMap} = this.makeBasis();
         this.basis = b;
         this.onesMap = onesMap;
+        this.geometricProductTable = this.makeGeometricProductTable();
         this.wedgeTable = this.makeWedgeTable();
         this.leftDualTable = this.makeDualTable("left");
         this.rightDualTable = this.makeDualTable("right");
-        console.log(this.wedgeTable);
-        console.log(this.leftDualTable);
-        console.log(this.rightDualTable);
-        this.antiWedgeTable = this.makeAntiWedgeTable();
-        this.geometricProductTable = this.makeGeometricProductTable();
+        this.antiWedgeTable = this.makeAntiTable(this.wedgeTable);
     }
     public get degree() {
         return this.positive + this.negative + this.zero;
@@ -67,6 +64,24 @@ export class Algebra {
                 (a < b ? -1 : 1)
         );
         return {b, onesMap};
+    }
+    public add(a: MultiVector, b: MultiVector, f = (a: number, b: number) => a + b) {
+        const keys = new Set(Object.keys(a)).union(new Set(Object.keys(b)));
+        const result: MultiVector = {}
+        keys.forEach((key) => {
+            result[key] = f(a[key] ? a[key] : 0, b[key] ? b[key]: 0);
+        })
+        return this.sortVector(result);
+    }
+    public sub(a: MultiVector, b: MultiVector) {
+        return this.add(a, b, (a: number, b: number) => a - b);
+    }
+    public scale(s: number, m: MultiVector) {
+        const result: MultiVector = {}
+        for (const basis in m) {
+            result[basis] = s * m[basis];
+        }
+        return result;
     }
     public makeWedgeTable() {
         const t: CayleyTable = {}
@@ -108,7 +123,7 @@ export class Algebra {
         }
         return t;
     }
-    public makeAntiWedgeTable() {
+    public makeAntiTable(table : CayleyTable) {
         const t: CayleyTable = {}
         for (let a = 0; a < 2 ** this.degree; a++) {
             const ea = this.basis[a];
@@ -119,7 +134,7 @@ export class Algebra {
                 const leb = this.leftDualTable[eb];
                 const leaBasis = this.getBasis(lea);
                 const lebBasis = this.getBasis(leb);
-                const w = this.wedgeTable[leaBasis][lebBasis];
+                const w = table[leaBasis][lebBasis];
                 if (this.isZero(w)) {
                     t[ea][eb] = w;
                 } else {

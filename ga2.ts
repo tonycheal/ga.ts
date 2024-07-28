@@ -14,10 +14,15 @@ console.log(vector1.toString() + "^" + vector2.toString() + "=" + vector1.wedge(
 console.log(vector1.toString() + "v" + vector2.toString() + "=" + vector1.antiWedge(vector2).toString());
 const { degree, wedgeTable, basis} = algebra;
 console.log(degree, basis);
-console.log("Wedge");
-algebra.dumpTable(wedgeTable);
 console.log("Geometric Product");
 algebra.dumpTable(algebra.geometricProductTable);
+console.log("Wedge");
+algebra.dumpTable(wedgeTable);
 console.log("AntiWedge");
 algebra.dumpTable(algebra.antiWedgeTable);
-
+const left = {e1: 3, e2: 4}
+const right = {e1: 7, e3: 8}
+console.log("a", left, "b", right);
+console.log("a+b",algebra.add(left, right))
+console.log("a-b",algebra.sub(left, right))
+console.log(".5*a", algebra.scale(.5, left))
