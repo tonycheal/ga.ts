@@ -1,12 +1,11 @@
 export interface MultiVector { [key: string]: number}
-export interface TableEntry { basis: string; sign: number }
 export interface CayleyTable {
     [key: string]:
         {
-            [key: string]: TableEntry;
+            [key: string]: MultiVector;
         }
 }
-export interface DualTable { [key: string]: TableEntry}
+export interface DualTable { [key: string]: MultiVector}
 
 export class Algebra {
     public positive: number;
@@ -29,6 +28,9 @@ export class Algebra {
         this.wedgeTable = this.makeWedgeTable();
         this.leftDualTable = this.makeDualTable("left");
         this.rightDualTable = this.makeDualTable("right");
+        console.log(this.wedgeTable);
+        console.log(this.leftDualTable);
+        console.log(this.rightDualTable);
         this.antiWedgeTable = this.makeAntiWedgeTable();
         this.geometricProductTable = this.makeGeometricProductTable();
     }
@@ -98,9 +100,9 @@ export class Algebra {
                     last -= 1;
                 }
                 if (zero) {
-                    t[ea][eb] = { basis: "0", sign: 1 }
+                    t[ea][eb] = {}
                 } else {
-                    t[ea][eb] = { basis: "e" + result.join(""), sign: swaps & 1 ? -1 : 1}
+                    t[ea][eb] = { ["e" + result.join("")]: swaps & 1 ? -1 : 1}
                 }
             }
         }
@@ -115,12 +117,17 @@ export class Algebra {
                 const eb = this.basis[b];
                 const lea = this.leftDualTable[ea];
                 const leb = this.leftDualTable[eb];
-                const w = this.wedgeTable[lea.basis][leb.basis];
-                let rw = {basis: "0", sign: 1}
-                if (w.basis !== "0") {
-                    rw = this.rightDualTable[w.basis];
+                const leaBasis = this.getBasis(lea);
+                const lebBasis = this.getBasis(leb);
+                const w = this.wedgeTable[leaBasis][lebBasis];
+                if (this.isZero(w)) {
+                    t[ea][eb] = w;
+                } else {
+                    const wBasis = this.getBasis(w);
+                    const rw = this.rightDualTable[wBasis];
+                    const rwBasis = this.getBasis(rw);
+                    t[ea][eb] = {[wBasis]: lea[leaBasis] * leb[lebBasis] * w[wBasis] * rw[rwBasis]}
                 }
-                t[ea][eb] = {basis: rw.basis, sign: lea.sign * leb.sign * w.sign * rw.sign}
             }
         }
         return t;
@@ -130,10 +137,11 @@ export class Algebra {
         for (let a = 0; a < 2**this.degree; a++) {
             const ea = this.basis[a];
             const ed = this.basis[2**this.degree - 1 - a];
-            const sign = side == "left" ?
-                this.wedgeTable[ed][ea].sign :
-                this.wedgeTable[ea][ed].sign;
-            result[ea] = {basis: ed, sign}
+            const signVector= side == "left" ?
+                this.wedgeTable[ed][ea] :
+                this.wedgeTable[ea][ed];
+            const signBasis = this.getBasis(signVector);
+            result[ea] = {[ed]: signVector[signBasis]}
         }
         return result;
     }
@@ -184,9 +192,9 @@ export class Algebra {
                 }
                 {
                     if (result2 === "0") {
-                        t[ea][eb] = { basis: result2, sign: 1}
+                        t[ea][eb] = {}
                     } else {
-                        t[ea][eb] = {basis: "e" + result2, sign: swaps & 1 ? -1 : 1}
+                        t[ea][eb] = {["e" + result2]: swaps & 1 ? -1 : 1}
                     }
                 }
             }
@@ -202,15 +210,28 @@ export class Algebra {
         }
         return sorted;
     }
+    public isZero(v: MultiVector) {
+        return Object.keys(v).length === 0;
+    }
+    public getBasis(v: MultiVector) {
+        const keys =Object.keys(v);
+        if (keys.length) {
+            return keys[0];
+        } else {
+            return "?";
+        }
+    }
     public cayleyMul(a: MultiVector, b: MultiVector, cayleyTable: CayleyTable) {
         const answer: MultiVector = {};
         for (const basisA in a) {
             for (const basisB in b) {
-                const {basis, sign} = cayleyTable[basisA][basisB];
-                const n = sign * a[basisA] * b[basisB];
-                answer[basis] = answer[basis] ? answer[basis] + n : n;
-                if (!answer[basis]) {
-                    delete answer[basis]; // don't include 0s
+                const result = cayleyTable[basisA][basisB];
+                for (const basisR in result) {
+                    const n = result[basisR] * a[basisA] * b[basisB];
+                    answer[basisR] = answer[basisR] ? answer[basisR] + n : n;
+                    if (!answer[basisR]) {
+                        delete answer[basisR];
+                    }
                 }
             }
         }
@@ -220,14 +241,16 @@ export class Algebra {
         let s = "";
         for (const basis in v) {
             const c = v[basis];
+            const cs = c === 1 ?
+                "" : ( c === -1 ? "-" : c.toString());
             if (basis === "e") {
                 s += c.toString();
             } else if (!s) {
-                s += c.toString() + basis;
+                s += cs+ basis;
             } else if (c > 0) {
-                s += "+" + c.toString() + basis;
+                s += "+" + cs + basis;
             } else {
-                s += c.toString() + basis;
+                s += cs + basis;
             }
         }
         if (Object.keys(v).length > 1) {
@@ -254,7 +277,7 @@ export class Algebra {
             line = pad(a);
             for (const b of basis) {
                 const x= table[a][b];
-                line += pad((x.sign < 0 ? "-" : "") + x.basis);
+                line += pad(this.toString(x));
             }
             console.log(line);
         }
