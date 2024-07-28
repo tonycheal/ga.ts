@@ -1,12 +1,12 @@
 export interface MultiVector { [key: string]: number}
+export interface TableEntry { basis: string; sign: number }
 export interface CayleyTable {
     [key: string]:
         {
-            [key: string]:
-                { basis: string; sign: number }
+            [key: string]: TableEntry;
         }
 }
-export interface DualTable { [key: string]: {basis: string, sign: number}}
+export interface DualTable { [key: string]: TableEntry}
 
 export class Algebra {
     public positive: number;
