@@ -11,6 +11,7 @@ export class Algebra {
     public positive: number;
     public negative: number;
     public zero: number;
+    public squares: number[];
     public basis: string[];
     public onesMap: number[][];
     public geometricProductTable: CayleyTable = {};
@@ -18,10 +19,24 @@ export class Algebra {
     public antiWedgeTable: CayleyTable = {};
     public leftDualTable: DualTable = {};
     public rightDualTable: DualTable = {};
-    constructor(positive: number = 3, negative: number = 1, zero: number = 0) {
-        this.positive = positive;
-        this.negative = negative;
-        this.zero = zero;
+    public m: Matrix; // root
+    public M: Matrix;
+    constructor(positive: number | number[] = 3, negative: number = 1, zero: number = 0) {
+        if (Array.isArray(positive)) {
+            this.squares = positive;
+            this.positive = this.squares.filter((s) => s > 0).length;
+            this.negative = this.squares.filter((s) => s < 0).length;
+            this.zero = this.squares.filter((s) => s === 0).length;
+        } else {
+            this.positive = positive;
+            this.negative = negative;
+            this.zero = zero;
+            const empty = [] as number[];
+            this.squares = empty
+                .concat(new Array(this.zero).fill(0))
+                .concat(new Array(this.positive).fill(1))
+                .concat(new Array(this.negative).fill(-1))
+        }
         const {b, onesMap} = this.makeBasis();
         this.basis = b;
         this.onesMap = onesMap;
@@ -30,6 +45,7 @@ export class Algebra {
         this.leftDualTable = this.makeDualTable("left");
         this.rightDualTable = this.makeDualTable("right");
         this.antiWedgeTable = this.makeAntiTable(this.wedgeTable);
+        this.m = MatrixMath.create(this.degree, this.degree, this.squares);
     }
     public get degree() {
         return this.positive + this.negative + this.zero;
@@ -319,5 +335,58 @@ export class GA {
     }
     public antiWedge(b: GA) {
         return new GA(this.algebra, this.algebra.antiWedge(this.vector, b.vector));
+    }
+}
+
+export type Matrix = number[][];
+export class MatrixMath {
+    public static create(rows: number, columns: number = rows, diagonal: number | number[] = 0): Matrix {
+        const matrix: Matrix = [];
+        if (!Array.isArray(diagonal)) {
+            diagonal = new Array(rows).fill(diagonal);
+        }
+        for (let row = 0; row < rows; row ++) {
+            // initialise as identity
+            matrix.push(new Array(columns).fill(0));
+            matrix[row][row] = diagonal[row];
+        }
+        return matrix;
+    }
+    public static binary(a: Matrix, b: Matrix, f: (a: number, b: number) => number) {
+        const {rows: aRows, columns: aColumns} = MatrixMath.dim(a);
+        const c = MatrixMath.create(aRows, aColumns);
+        for (let row = 0; row < aRows; row++) {
+            for (let column = 0; column < aColumns; column ++) {
+                c[row][column] = f(a[row][column], b[row][column]);
+            }
+        }
+        return c;
+    }
+    public static add(a: Matrix, b: Matrix) {
+        return MatrixMath.binary(a, b, (a,b) => a+ b);
+    }
+    public static sub(a: Matrix, b: Matrix) {
+        return MatrixMath.binary(a, b, (a, b) => a-b);
+    }
+    public static dim(m: Matrix) {
+        const rows = m.length;
+        const columns = rows ? m[0].length : 0;
+        return {rows, columns}
+    }
+    public static mul(a: Matrix, b: Matrix) {
+        const {rows: aRows, columns: aColumns} = MatrixMath.dim(a);
+        const {rows: bRows, columns: bColumns} = MatrixMath.dim(b);
+        // aColumns must equal bRows
+        const c: Matrix = [];
+        if (aColumns === bRows) {
+            for (let row = 0; row < aRows; row++) {
+                for (let column = 0; column < bColumns; column++) {
+                    for (let aCbR = 0; aCbR < aColumns; aCbR++) {
+                        c[row][column] += a[row][aCbR] * b[aCbR][column];
+                    }
+                }
+            }
+        }
+        return c; // return is [] if you can't do this
     }
 }
