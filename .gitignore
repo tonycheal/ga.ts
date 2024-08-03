@@ -7,6 +7,9 @@
 node_modules/
 dist/
 
+# My junk
+junk/
+
 # Compiled Java class files
 *.class
 
@@ -21,7 +24,6 @@ dist/
 
 # Maven
 target/
-dist/
 
 # JetBrains IDE
 .idea/

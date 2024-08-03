@@ -65,16 +65,19 @@ export class Algebra {
         );
         return {b, onesMap};
     }
-    public add(a: MultiVector, b: MultiVector, f = (a: number, b: number) => a + b) {
+    public binary(a: MultiVector, b: MultiVector, f = (a: number, b: number) => a + b) {
         const keys = new Set(Object.keys(a)).union(new Set(Object.keys(b)));
         const result: MultiVector = {}
         keys.forEach((key) => {
-            result[key] = f(a[key] ? a[key] : 0, b[key] ? b[key]: 0);
+            result[key] = f(a[key]??0, b[key]??0);
         })
         return this.sortVector(result);
     }
+    public add(a: MultiVector, b: MultiVector) {
+        return this.binary(a,b);
+    }
     public sub(a: MultiVector, b: MultiVector) {
-        return this.add(a, b, (a: number, b: number) => a - b);
+        return this.binary(a, b, (a: number, b: number) => a - b);
     }
     public scale(s: number, m: MultiVector) {
         const result: MultiVector = {}
