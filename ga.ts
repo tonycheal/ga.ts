@@ -6,12 +6,18 @@ export interface CayleyTable {
         }
 }
 export interface DualTable { [key: string]: MultiVector}
+export interface BasisMap {square: number, subscript: string}
 
+function isBasisMap(map: number[] | BasisMap[]):map is BasisMap[] {
+    return typeof map[0] !== 'number';
+}
 export class Algebra {
+    public parent: Algebra | null;
     public positive: number;
     public negative: number;
     public zero: number;
     public squares: number[];
+    public subscripts: string[];
     public basis: string[];
     public onesMap: number[][];
     public geometricProductTable: CayleyTable = {};
@@ -20,21 +26,38 @@ export class Algebra {
     public leftDualTable: DualTable = {};
     public rightDualTable: DualTable = {};
     public m: Matrix[] = []; // root
-    constructor(positive: number | number[] = 3, negative: number = 1, zero: number = 0) {
+    constructor(positive: number | number[] | BasisMap[]= 3, negative: number  | Algebra = 1, zero: number = 0) {
+        this.parent = null;
         if (Array.isArray(positive)) {
-            this.squares = positive;
+            if (!isBasisMap(positive)) {
+                this.squares = positive;
+                this.subscripts = [];
+                for (let index = 0; index < this.squares.length; index++) {
+                    this.subscripts[index] = (index + 1).toString();
+                }
+             } else {
+                if (typeof negative !== "number") {
+                    this.parent = negative;
+                }
+                this.squares = positive.map((basisMap) => basisMap.square);
+                this.subscripts = positive.map((basisMap) => basisMap.subscript);
+            }
             this.positive = this.squares.filter((s) => s > 0).length;
             this.negative = this.squares.filter((s) => s < 0).length;
             this.zero = this.squares.filter((s) => s === 0).length;
         } else {
             this.positive = positive;
-            this.negative = negative;
+            this.negative = negative as number; // must be number if positive is number
             this.zero = zero;
             const empty = [] as number[];
             this.squares = empty
                 .concat(new Array(this.zero).fill(0))
                 .concat(new Array(this.positive).fill(1))
                 .concat(new Array(this.negative).fill(-1))
+            this.subscripts = [];
+            for (let index = 0; index < this.squares.length; index++) {
+                this.subscripts[index] = (index + 1).toString();
+            }
         }
         const {b, onesMap} = this.makeBasis();
         this.basis = b;
