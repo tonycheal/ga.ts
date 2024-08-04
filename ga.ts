@@ -19,8 +19,7 @@ export class Algebra {
     public antiWedgeTable: CayleyTable = {};
     public leftDualTable: DualTable = {};
     public rightDualTable: DualTable = {};
-    public m: Matrix; // root
-    public M: Matrix;
+    public m: Matrix[] = []; // root
     constructor(positive: number | number[] = 3, negative: number = 1, zero: number = 0) {
         if (Array.isArray(positive)) {
             this.squares = positive;
@@ -45,7 +44,11 @@ export class Algebra {
         this.leftDualTable = this.makeDualTable("left");
         this.rightDualTable = this.makeDualTable("right");
         this.antiWedgeTable = this.makeAntiTable(this.wedgeTable);
-        this.m = MatrixMath.create(this.degree, this.degree, this.squares);
+        this.m[0] = [[1]];
+        this.m[1] = MatrixMath.create(this.degree, this.degree, this.squares);
+        for (let bits = 2; bits < this.degree; bits++) {
+            this.m[bits] = this.makeMn(bits);
+        }
     }
     public get degree() {
         return this.positive + this.negative + this.zero;
@@ -317,6 +320,22 @@ export class Algebra {
         }
 
     }
+    public makeMn(bits: number) {
+        // const previousInfo = this.onesMap.filter((ones) => ones.length === bits -1);
+        const currentInfo = this.onesMap.filter((ones) => ones.length === bits);
+        const mn = MatrixMath.create(currentInfo.length, currentInfo.length);
+        // const {rows, columns} = MatrixMath.dim(mn);
+        currentInfo.forEach((basis, index) => {
+            // e.g. basis could be e1234
+            const single = basis[index]; // e.g. 2
+            const rest = basis.slice(0,index).concat(basis.slice(index)); // e.g. 134
+            const swap = index % 2; // e.g. 1 - i.e. swap of sign is needed
+            // here be dragons - just pretend for the moment to satisy ts
+            const v = Number(rest);
+            mn[index][index] = (swap ? -1 : 1) * this.m[1][single][single] * this.m[bits-1][v][v];
+        });
+        return mn;
+    }
 }
 
 export class GA {
@@ -341,21 +360,22 @@ export class GA {
 export type Matrix = number[][];
 export class MatrixMath {
     public static create(rows: number, columns: number = rows, diagonal: number | number[] = 0): Matrix {
-        const matrix: Matrix = [];
+        const c: Matrix = [];
         if (!Array.isArray(diagonal)) {
             diagonal = new Array(rows).fill(diagonal);
         }
         for (let row = 0; row < rows; row ++) {
-            // initialise as identity
-            matrix.push(new Array(columns).fill(0));
-            matrix[row][row] = diagonal[row];
+            // initialise as identity is possible, or anything on leading diagonal
+            c[row] = new Array(columns).fill(0);
+            c[row][row] = diagonal[row];
         }
-        return matrix;
+        return c;
     }
     public static binary(a: Matrix, b: Matrix, f: (a: number, b: number) => number) {
         const {rows: aRows, columns: aColumns} = MatrixMath.dim(a);
-        const c = MatrixMath.create(aRows, aColumns);
+        const c: Matrix = [];
         for (let row = 0; row < aRows; row++) {
+            c[row] = [];
             for (let column = 0; column < aColumns; column ++) {
                 c[row][column] = f(a[row][column], b[row][column]);
             }
@@ -380,6 +400,7 @@ export class MatrixMath {
         const c: Matrix = [];
         if (aColumns === bRows) {
             for (let row = 0; row < aRows; row++) {
+                c[row] = [];
                 for (let column = 0; column < bColumns; column++) {
                     for (let aCbR = 0; aCbR < aColumns; aCbR++) {
                         c[row][column] += a[row][aCbR] * b[aCbR][column];
@@ -388,5 +409,15 @@ export class MatrixMath {
             }
         }
         return c; // return is [] if you can't do this
+    }
+    public static transpose(m: Matrix) {
+        const {rows, columns} = MatrixMath.dim(m);
+        const c: Matrix = [];
+        for (let row = 0; row < rows; row ++) {
+            c[row] = [];
+            for (let column = 0; column < columns; column ++) {
+                c[row][column] = m[column][row];
+            }
+        }
     }
 }
