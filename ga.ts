@@ -81,30 +81,39 @@ export class Algebra {
         const ones: number[] = [];
         binary.forEach((bit, index) => {
             if (bit === "1") {
-                ones.push(index + 1);
+                ones.push(index);
             }
         });
         return ones;
     }
     public makeBasis() {
-        const b: string[] = [];
         const onesMap: number[][] = [];
         const degree = this.degree;
         const l = 2**degree;
+        for (let i = 0; i < l; i++) {
+            onesMap.push(this.bits(i));
+        }
+        /*
         for (let grade = 0; grade <= degree; grade ++) {
-            for (let i = 0; i < l; i++) {
-                const ones = this.bits(i);
-                onesMap.push(ones);
+            for (const ones of onesMap) {
                 if (ones.length === grade) {
-                    b.push("e" + ones.join(""))
+                    b.push("e" + ones.map((pos) => pos + 1).join(""))
                 }
             }
         }
-        b.sort((a,b) =>
+         */
+        const comp = (a: number[], b: number[]): number => {
+            return a[0] === b[0] && a.length > 1 ? comp(a.slice(1), b.slice(1)) :
+                a[0] - b[0]
+        }
+        const sortedOnesMap = [...onesMap].sort((a, b) =>
             a.length != b.length ?
                 a.length - b.length :
-                (a < b ? -1 : 1)
+                comp(a, b)
         );
+        const b = sortedOnesMap.map((bitmap) =>
+            "e" + bitmap.map((bit) => this.subscripts[bit]).join(""))
+        console.log(b);
         return {b, onesMap};
     }
     public binary(a: MultiVector, b: MultiVector, f = (a: number, b: number) => a + b) {

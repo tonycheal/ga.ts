@@ -26,3 +26,14 @@ console.log("a", left, "b", right);
 console.log("a+b",algebra.add(left, right))
 console.log("a-b",algebra.sub(left, right))
 console.log(".5*a", algebra.scale(.5, left))
+
+const algebraC = new Algebra(
+    [
+        {square: 1, subscript: "1"},
+        {square: 1, subscript: "2"},
+        {square: -1, subscript: "m"},
+        {square: 1, subscript: "p"}
+    ]
+)
+console.log(algebraC);
+algebraC.dumpTable(algebraC.geometricProductTable);
