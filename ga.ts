@@ -327,11 +327,11 @@ export class Algebra {
         // const {rows, columns} = MatrixMath.dim(mn);
         currentInfo.forEach((basis, index) => {
             // e.g. basis could be e1234
-            const single = basis[index]; // e.g. 2
-            const rest = basis.slice(0,index).concat(basis.slice(index)); // e.g. 134
+            const single = 0; //basis[index]; // e.g. 2
+            // const rest = basis.slice(0,index).concat(basis.slice(index)); // e.g. 134
             const swap = index % 2; // e.g. 1 - i.e. swap of sign is needed
             // here be dragons - just pretend for the moment to satisy ts
-            const v = Number(rest);
+            const v = 0; //Number(rest);
             mn[index][index] = (swap ? -1 : 1) * this.m[1][single][single] * this.m[bits-1][v][v];
         });
         return mn;
