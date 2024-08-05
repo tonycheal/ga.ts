@@ -16,6 +16,7 @@ export class Algebra {
     public positive: number;
     public negative: number;
     public zero: number;
+    public degree: number;
     public squares: number[];
     public subscripts: string[];
     public basis: string[];
@@ -59,6 +60,7 @@ export class Algebra {
                 this.subscripts[index] = (index + 1).toString();
             }
         }
+        this.degree = this.squares.length;
         const {b, onesMap} = this.makeBasis();
         this.basis = b;
         this.onesMap = onesMap;
@@ -72,9 +74,6 @@ export class Algebra {
         for (let bits = 2; bits < this.degree; bits++) {
             this.m[bits] = this.makeMn(bits);
         }
-    }
-    public get degree() {
-        return this.positive + this.negative + this.zero;
     }
     public bits(n: number) {
         const binary = n.toString(2).split("").reverse();
@@ -93,15 +92,6 @@ export class Algebra {
         for (let i = 0; i < l; i++) {
             onesMap.push(this.bits(i));
         }
-        /*
-        for (let grade = 0; grade <= degree; grade ++) {
-            for (const ones of onesMap) {
-                if (ones.length === grade) {
-                    b.push("e" + ones.map((pos) => pos + 1).join(""))
-                }
-            }
-        }
-         */
         const comp = (a: number[], b: number[]): number => {
             return a[0] === b[0] && a.length > 1 ? comp(a.slice(1), b.slice(1)) :
                 a[0] - b[0]
@@ -244,11 +234,12 @@ export class Algebra {
                 let index = 0;
                 while (index < result.length) {
                     if (result[index] === result[index + 1]) {
-                        const bno = Number(result[index]);
-                        if (bno <= this.zero) {
+                        const bno = this.subscripts.indexOf(result[index]);
+                        const square = this.squares[bno];
+                        if (square === 0) {
                             index = result.length;
                             result2 = "0";
-                        } else if (bno <= this.zero + this.positive) {
+                        } else if (square == 1) {
                             index += 2;
                         } else {
                             swaps += 1;
