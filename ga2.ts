@@ -35,5 +35,36 @@ const algebraC = new Algebra(
         {square: 1, subscript: "p"}
     ]
 )
-console.log(algebraC);
+console.log("Algebra 3");
+//console.log(algebraC);
+const e4 = new GA(algebraC, {em: 1/2, ep: -1/2});
+const e5 = new GA(algebraC, {em: 1, ep: 1});
+console.log("e4^e5=", e4.toString(), e5.toString(),e4.wedge(e5).toString());
+console.log("e5^e4=", e5.toString(), e4.toString(),e5.wedge(e4).toString());
 algebraC.dumpTable(algebraC.geometricProductTable);
+
+const algebra2DC = new Algebra(
+    [
+        {square: 1, subscript: "1"},
+        {square: 1, subscript: "2"},
+        {square: 1, subscript: "3"},
+        {square: 1, subscript: "4"},
+    ],
+    {algebra: algebraC, transform:
+        /* would be better as... or as an alternative as column from CayleyTable
+        {
+            e1: {e1: 1},
+            e2: {e2: 1},
+            e3: {em: 1/2, ep: -1/2},
+            e4: {em: 1   ,ep: 1},
+        }
+        but Matrix will do for the moment, since most entries are 0,1 */
+    [
+        [1,0,0,0],
+        [0,1,0,0],
+        [0,0,1/2,1],
+        [0,0,-1/2,1]
+    ]}
+);
+console.log(algebraC.wedgeTable)
+// console.log(algebra2DC);

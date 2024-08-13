@@ -17,9 +17,11 @@ export class Algebra {
     public negative: number;
     public zero: number;
     public degree: number;
+    public transform: Matrix;
     public squares: number[];
     public subscripts: string[];
     public basis: string[];
+    public basisGrades: string[][];
     public onesMap: number[][];
     public geometricProductTable: CayleyTable = {};
     public wedgeTable: CayleyTable = {};
@@ -27,7 +29,7 @@ export class Algebra {
     public leftDualTable: DualTable = {};
     public rightDualTable: DualTable = {};
     public m: Matrix[] = []; // root
-    constructor(positive: number | number[] | BasisMap[]= 3, negative: number  | Algebra = 1, zero: number = 0) {
+    constructor(positive: number | number[] | BasisMap[]= 3, negative: number  | {algebra: Algebra, transform: Matrix} = 1, zero: number = 0) {
         this.parent = null;
         if (Array.isArray(positive)) {
             if (!isBasisMap(positive)) {
@@ -38,7 +40,7 @@ export class Algebra {
                 }
              } else {
                 if (typeof negative !== "number") {
-                    this.parent = negative;
+                    this.parent = negative.algebra;
                 }
                 this.squares = positive.map((basisMap) => basisMap.square);
                 this.subscripts = positive.map((basisMap) => basisMap.subscript);
@@ -61,19 +63,32 @@ export class Algebra {
             }
         }
         this.degree = this.squares.length;
+        if (typeof negative === 'number') {
+            this.transform = MatrixMath.create(this.degree, this.degree, 1); // identity
+        } else {
+            this.transform = negative.transform;
+        }
         const {b, onesMap} = this.makeBasis();
         this.basis = b;
+        this.basisGrades = [];
+        for (const b of this.basis) {
+            if (!this.basisGrades[b.length - 1]) {
+                this.basisGrades[b.length - 1] = [];
+            }
+            this.basisGrades[b.length - 1].push(b);
+        }
         this.onesMap = onesMap;
+        // transform can be changed for algebras with parent, and then M, G and all tables recalculated
+        this.m[0] = [[1]];
+        this.m[1] = this.transform;
+        for (let bits = 2; bits < this.degree + 1; bits++) {
+            this.m[bits] = this.makeMn(bits);
+        }
         this.geometricProductTable = this.makeGeometricProductTable();
         this.wedgeTable = this.makeWedgeTable();
         this.leftDualTable = this.makeDualTable("left");
         this.rightDualTable = this.makeDualTable("right");
         this.antiWedgeTable = this.makeAntiTable(this.wedgeTable);
-        this.m[0] = [[1]];
-        this.m[1] = MatrixMath.create(this.degree, this.degree, this.squares);
-        for (let bits = 2; bits < this.degree; bits++) {
-            this.m[bits] = this.makeMn(bits);
-        }
     }
     public bits(n: number) {
         const binary = n.toString(2).split("").reverse();
@@ -103,7 +118,6 @@ export class Algebra {
         );
         const b = sortedOnesMap.map((bitmap) =>
             "e" + bitmap.map((bit) => this.subscripts[bit]).join(""))
-        console.log(b);
         return {b, onesMap};
     }
     public binary(a: MultiVector, b: MultiVector, f = (a: number, b: number) => a + b) {
@@ -344,19 +358,44 @@ export class Algebra {
 
     }
     public makeMn(bits: number) {
+        console.log("bits", bits);
         // const previousInfo = this.onesMap.filter((ones) => ones.length === bits -1);
-        const currentInfo = this.onesMap.filter((ones) => ones.length === bits);
-        const mn = MatrixMath.create(currentInfo.length, currentInfo.length);
-        // const {rows, columns} = MatrixMath.dim(mn);
-        currentInfo.forEach((basis, index) => {
-            // e.g. basis could be e1234
-            const single = 0; //basis[index]; // e.g. 2
-            // const rest = basis.slice(0,index).concat(basis.slice(index)); // e.g. 134
-            const swap = index % 2; // e.g. 1 - i.e. swap of sign is needed
-            // here be dragons - just pretend for the moment to satisy ts
-            const v = 0; //Number(rest);
-            mn[index][index] = (swap ? -1 : 1) * this.m[1][single][single] * this.m[bits-1][v][v];
-        });
+        const vectors  = this.basisGrades[bits]; // names of our vectors
+        const mn = MatrixMath.create(vectors.length, vectors.length,1); // default to identity
+        if (this.parent) {
+            // const pVectors = this.parent.basisGrades[bits]; // names of parent vectors
+            // const pVectors1 = this.parent.basisGrades[1];
+            vectors.forEach((vector, index) => { // e.g. e134
+                console.log("vector", vector, vector[1], vector.slice(2));
+                const single = this.basisGrades[1].indexOf("e" + vector[1]); //basis[index]; // e.g. e1
+                const rest = this.basisGrades[bits - 1].indexOf("e" + vector.slice(2)); // e.g. e34
+                console.log(single, rest);
+                const x = this.parent!.basisGrades[1][single];
+                const y = this.parent!.basisGrades[bits-1][rest];
+                console.log(">>>", x,y);
+                const left: MultiVector = {}
+                for (let i = 0; i < this.basisGrades[1].length; i++) {
+                    if (this.m[1][i][single]) {
+                        left[this.parent!.basisGrades[1][i]] = this.m[1][i][single];
+                    }
+                }
+                const right: MultiVector = {}
+                for (let i = 0; i < this.basisGrades[bits-1].length; i++) {
+                    if(this.m[bits-1][i][rest]) {
+                        right[this.parent!.basisGrades[bits-1][i]] = this.m[bits-1][i][rest];
+                    }
+                    // and that's the column in the result
+                }
+                console.log("wedge of ", left, right);
+                const answer = this.parent!.wedge(left, right);
+                console.log("answer ", answer);
+                for (let i = 0; i < this.parent!.basisGrades[bits].length; i++) {
+                    const z = answer[this.parent!.basisGrades[bits][i]];
+                    mn[i][index] = z ? z : 0;
+                }
+            });
+        }
+        console.log("m[" + bits + "]", mn);
         return mn;
     }
 }
