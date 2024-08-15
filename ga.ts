@@ -29,6 +29,7 @@ export class Algebra {
     public leftDualTable: DualTable = {};
     public rightDualTable: DualTable = {};
     public m: Matrix[] = []; // root
+    public g: Matrix[] = []; // metric
     constructor(positive: number | number[] | BasisMap[]= 3, negative: number  | {algebra: Algebra, transform: Matrix} = 1, zero: number = 0) {
         this.parent = null;
         if (Array.isArray(positive)) {
@@ -81,8 +82,15 @@ export class Algebra {
         // transform can be changed for algebras with parent, and then M, G and all tables recalculated
         this.m[0] = [[1]];
         this.m[1] = this.transform;
+        this.g[0] = [[1]];
+        this.g[1] = MatrixMath.create(this.degree, this.degree, this.squares);
+        // well actually use the parent algebra and m[1] to calculate
         for (let bits = 2; bits < this.degree + 1; bits++) {
             this.m[bits] = this.makeMn(bits);
+            if (this.parent && bits === 1) {
+                this.g[1] = MatrixMath.mul(MatrixMath.transpose(this.m[1]),
+                    MatrixMath.mul(this.parent.g[1], this.m[1]));
+            }
         }
         this.geometricProductTable = this.makeGeometricProductTable();
         this.wedgeTable = this.makeWedgeTable();
@@ -395,6 +403,7 @@ export class Algebra {
                 }
             });
         }
+        console.log(this.basisGrades[bits]);
         console.log("m[" + bits + "]", mn);
         return mn;
     }
@@ -481,5 +490,6 @@ export class MatrixMath {
                 c[row][column] = m[column][row];
             }
         }
+        return c;
     }
 }

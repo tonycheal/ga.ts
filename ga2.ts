@@ -1,5 +1,5 @@
 // Second attempt at simple geometric algebra library now moved to ga.ts
-import {Algebra, GA} from "./ga.ts";
+import {Algebra, GA, MatrixMath} from "./ga.ts";
 
 const algebra = new Algebra(3,1,0);
 console.log(algebra);
@@ -66,5 +66,12 @@ const algebra2DC = new Algebra(
         [0,0,-1/2,1]
     ]}
 );
-console.log(algebraC.wedgeTable)
+console.log(algebraC.wedgeTable);
+console.log(algebraC.g[1])
+console.log(algebra2DC.m[1]);
+console.log(MatrixMath.transpose(algebra2DC.m[1]))
+console.log(algebra2DC.g[1]);
+const gg = MatrixMath.mul(MatrixMath.transpose(algebra2DC.m[1]),
+    MatrixMath.mul(algebra2DC.parent!.g[1], algebra2DC.m[1]));
+console.log (gg);
 // console.log(algebra2DC);
