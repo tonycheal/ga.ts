@@ -67,11 +67,13 @@ const algebra2DC = new Algebra(
     ]}
 );
 console.log(algebraC.wedgeTable);
-console.log(algebraC.g[1])
 console.log(algebra2DC.m[1]);
 console.log(MatrixMath.transpose(algebra2DC.m[1]))
 console.log(algebra2DC.g[1]);
+console.log(algebra2DC.parent!.g[1])
 const gg = MatrixMath.mul(MatrixMath.transpose(algebra2DC.m[1]),
     MatrixMath.mul(algebra2DC.parent!.g[1], algebra2DC.m[1]));
 console.log (gg);
-// console.log(algebra2DC);
+console.log(MatrixMath.mul([[1,0],[0,1]], [[.5,.4],[.3,.2]]))
+console.log("==============+++++++====");
+console.log(algebra2DC);

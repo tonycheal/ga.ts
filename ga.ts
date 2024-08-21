@@ -88,8 +88,8 @@ export class Algebra {
         for (let bits = 2; bits < this.degree + 1; bits++) {
             this.m[bits] = this.makeMn(bits);
             if (this.parent && bits === 1) {
-                this.g[1] = MatrixMath.mul(MatrixMath.transpose(this.m[1]),
-                    MatrixMath.mul(this.parent.g[1], this.m[1]));
+                this.g[bits] = MatrixMath.mul(MatrixMath.transpose(this.m[bits]),
+                    MatrixMath.mul(this.parent.g[bits], this.m[bits]));
             }
         }
         this.geometricProductTable = this.makeGeometricProductTable();
@@ -473,6 +473,7 @@ export class MatrixMath {
             for (let row = 0; row < aRows; row++) {
                 c[row] = [];
                 for (let column = 0; column < bColumns; column++) {
+                    c[row][column] = 0;
                     for (let aCbR = 0; aCbR < aColumns; aCbR++) {
                         c[row][column] += a[row][aCbR] * b[aCbR][column];
                     }
