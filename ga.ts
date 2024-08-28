@@ -30,6 +30,7 @@ export class Algebra {
     public rightDualTable: DualTable = {};
     public m: Matrix[] = []; // root
     public g: Matrix[] = []; // metric
+    public debug: Matrix[] = [];
     constructor(positive: number | number[] | BasisMap[]= 3, negative: number  | {algebra: Algebra, transform: Matrix} = 1, zero: number = 0) {
         this.parent = null;
         if (Array.isArray(positive)) {
@@ -88,10 +89,16 @@ export class Algebra {
         for (let bits = 2; bits < this.degree + 1; bits++) {
             this.m[bits] = this.makeMn(bits);
             if (this.parent && bits === 1) {
-                this.g[bits] = MatrixMath.mul(MatrixMath.transpose(this.m[bits]),
-                    MatrixMath.mul(this.parent.g[bits], this.m[bits]));
+                this.g[bits] = MatrixMath.mul(this.debug[0] = MatrixMath.transpose(this.m[bits]),
+                    this.debug[1] = MatrixMath.mul(this.debug[2] = this.parent.g[bits], this.debug[3] = this.m[bits]));
             }
         }
+        const bits = 1;
+        if (this.parent && bits === 1) {
+            this.g[bits] = MatrixMath.mul(this.debug[0] = MatrixMath.transpose(this.m[bits]),
+                this.debug[1] = MatrixMath.mul(this.debug[2] = this.parent.g[bits], this.debug[3] = this.m[bits]));
+        }
+
         this.geometricProductTable = this.makeGeometricProductTable();
         this.wedgeTable = this.makeWedgeTable();
         this.leftDualTable = this.makeDualTable("left");
