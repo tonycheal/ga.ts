@@ -85,18 +85,24 @@ export class Algebra {
         this.m[1] = this.transform;
         this.g[0] = [[1]];
         this.g[1] = MatrixMath.create(this.degree, this.degree, this.squares);
+        if (this.parent) {
+            this.g[1] = MatrixMath.mul(MatrixMath.transpose(this.m[1]),
+                MatrixMath.mul(this.parent.g[1], this.m[1]));
+        }
         // well actually use the parent algebra and m[1] to calculate
         for (let bits = 2; bits < this.degree + 1; bits++) {
             this.m[bits] = this.makeMn(bits);
-            if (this.parent && bits === 1) {
-                this.g[bits] = MatrixMath.mul(this.debug[0] = MatrixMath.transpose(this.m[bits]),
-                    this.debug[1] = MatrixMath.mul(this.debug[2] = this.parent.g[bits], this.debug[3] = this.m[bits]));
+            if (this.parent) {
+                this.g[bits] = MatrixMath.mul(MatrixMath.transpose(this.m[bits]),
+                    MatrixMath.mul(this.parent.g[bits], this.m[bits]));
+            } else {
+                this.g[bits] = MatrixMath.create(this.basisGrades[bits].length, this.basisGrades[bits].length);
+                this.basisGrades[bits].forEach((basis, index) =>  {
+                    const left = this.basisGrades[1].indexOf('e' + basis[1]);
+                    const right = this.basisGrades[bits - 1].indexOf('e' + basis.substring(2));
+                    this.g[bits][index][index] = this.g[1][left][left] * this.g[bits-1][right][right];
+                });
             }
-        }
-        const bits = 1;
-        if (this.parent && bits === 1) {
-            this.g[bits] = MatrixMath.mul(this.debug[0] = MatrixMath.transpose(this.m[bits]),
-                this.debug[1] = MatrixMath.mul(this.debug[2] = this.parent.g[bits], this.debug[3] = this.m[bits]));
         }
 
         this.geometricProductTable = this.makeGeometricProductTable();
