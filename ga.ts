@@ -276,7 +276,9 @@ export class Algebra {
         }
         return result;
     }
-    public makeGeometricProductTable() {
+    public makeOrthogonalGPTable() {
+        // Build GP table for an orthogonal basis (diagonal metric).
+        // This is the original algorithm, valid when g[1] is diagonal.
         const t: CayleyTable = {}
         for (let a = 0; a < 2 ** this.degree; a++) {
             const ea = this.basis[a];
@@ -301,7 +303,6 @@ export class Algebra {
                     }
                     last -= 1;
                 }
-                // repeats give 0, 1, or -1  if zero, positive or negative
                 let result2 = "";
                 let index = 0;
                 while (index < result.length) {
@@ -322,13 +323,102 @@ export class Algebra {
                         index += 1;
                     }
                 }
-                {
-                    if (result2 === "0") {
-                        t[ea][eb] = {}
-                    } else {
-                        t[ea][eb] = {["e" + result2]: swaps & 1 ? -1 : 1}
+                if (result2 === "0") {
+                    t[ea][eb] = {}
+                } else {
+                    t[ea][eb] = {["e" + result2]: swaps & 1 ? -1 : 1}
+                }
+            }
+        }
+        return t;
+    }
+    // Express a child basis element as a MultiVector in the parent algebra
+    public childToParent(basisName: string): MultiVector {
+        const grade = this.gradeOfBasis(basisName);
+        const idx = this.basisGrades[grade].indexOf(basisName);
+        const result: MultiVector = {};
+        const parentBasis = this.parent!.basisGrades[grade];
+        for (let i = 0; i < parentBasis.length; i++) {
+            if (this.m[grade][i][idx]) {
+                result[parentBasis[i]] = this.m[grade][i][idx];
+            }
+        }
+        return result;
+    }
+    // Express a parent MultiVector back in child basis
+    public parentToChild(parentMV: MultiVector): MultiVector {
+        const result: MultiVector = {};
+        // Group parent MV by grade, then use M[grade]^{-1} to map back
+        // Since M may not be square-invertible, use: child_coeff = G_child^{-1} M^T G_parent parent_coeff
+        // But for simplicity and correctness, we can solve it grade by grade
+        for (let grade = 0; grade <= this.degree; grade++) {
+            const parentBasis = this.parent!.basisGrades[grade];
+            const childBasis = this.basisGrades[grade];
+            if (!parentBasis || !childBasis) continue;
+            // Get parent coefficients for this grade
+            const pCoeffs: number[] = parentBasis.map(b => parentMV[b] || 0);
+            if (pCoeffs.every(c => c === 0)) continue;
+            // child = M^{-1} * parent, but M may not be square. Since dimensions match
+            // (same algebra degree), M[grade] IS square. Use: child = G_child^{-1} M^T G_parent * parent
+            // Or more directly: parent = M * child, so child = M^{-1} * parent
+            // For now, solve M * child = parent using the metric:
+            // G_child * child = M^T * G_parent * parent
+            const Mg = this.m[grade];
+            const Gp = this.parent!.g[grade];
+            const Gc = this.g[grade];
+            const n = childBasis.length;
+            // Compute M^T * G_parent * parentCoeffs
+            const MtGp = MatrixMath.mul(MatrixMath.transpose(Mg), Gp);
+            const rhs: number[] = new Array(n).fill(0);
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < parentBasis.length; j++) {
+                    rhs[i] += MtGp[i][j] * pCoeffs[j];
+                }
+            }
+            // Solve G_child * child = rhs
+            // For small matrices, use direct solve (G_child should be invertible)
+            const Gcinv = MatrixMath.invertSmall(Gc);
+            if (Gcinv) {
+                for (let i = 0; i < n; i++) {
+                    let val = 0;
+                    for (let j = 0; j < n; j++) {
+                        val += Gcinv[i][j] * rhs[j];
+                    }
+                    if (Math.abs(val) > 1e-12) {
+                        result[childBasis[i]] = val;
                     }
                 }
+            }
+        }
+        return result;
+    }
+    public makeGeometricProductTable() {
+        if (!this.parent) return this.makeOrthogonalGPTable();
+        // For child algebras with non-orthogonal metric:
+        // Compute GP by transforming to parent, multiplying there, transforming back
+        const t: CayleyTable = {};
+        for (let a = 0; a < 2 ** this.degree; a++) {
+            const ea = this.basis[a];
+            t[ea] = {};
+            for (let b = 0; b < 2 ** this.degree; b++) {
+                const eb = this.basis[b];
+                const pa = this.childToParent(ea);
+                const pb = this.childToParent(eb);
+                // Compute GP in parent algebra
+                const parentResult = this.parent!.cayleyMul(pa, pb, this.parent!.geometricProductTable);
+                // Transform back to child basis
+                const childResult = this.parentToChild(parentResult);
+                // Clean up near-zero entries
+                const cleaned: MultiVector = {};
+                for (const k in childResult) {
+                    if (Math.abs(childResult[k]) > 1e-12) {
+                        // Round to clean values if very close to integers/simple fractions
+                        const v = childResult[k];
+                        const rounded = Math.round(v * 2) / 2; // round to nearest 0.5
+                        cleaned[k] = Math.abs(v - rounded) < 1e-10 ? rounded : v;
+                    }
+                }
+                t[ea][eb] = this.sortVector(cleaned);
             }
         }
         return t;
@@ -395,6 +485,27 @@ export class Algebra {
     }
     public antiWedge(a: MultiVector, b: MultiVector) {
         return this.cayleyMul(a, b, this.antiWedgeTable);
+    }
+    public get pseudoscalar(): MultiVector {
+        return {[this.basis[this.basis.length - 1]]: 1};
+    }
+    public get pseudoscalarInverse(): MultiVector {
+        return this.inverse(this.pseudoscalar);
+    }
+    // Hodge dual: x * I⁻¹ (uses geometric product, metric-dependent)
+    public hodgeDual(v: MultiVector): MultiVector {
+        return this.gp(v, this.pseudoscalarInverse);
+    }
+    // Hodge undual: I * x
+    public hodgeUnDual(v: MultiVector): MultiVector {
+        return this.gp(this.pseudoscalar, v);
+    }
+    // Meet (regressive product) using Hodge duals — correct for non-orthogonal metrics
+    public meet(a: MultiVector, b: MultiVector): MultiVector {
+        const aStar = this.hodgeDual(a);
+        const bStar = this.hodgeDual(b);
+        const w = this.wedge(aStar, bStar);
+        return this.hodgeUnDual(w);
     }
     public gp(a: MultiVector, b: MultiVector) {
         return this.cayleyMul(a, b, this.geometricProductTable);
@@ -572,6 +683,9 @@ export class GA {
     public antiWedge(b: GA) {
         return new GA(this.algebra, this.algebra.antiWedge(this.vector, b.vector));
     }
+    public meet(b: GA) {
+        return new GA(this.algebra, this.algebra.meet(this.vector, b.vector));
+    }
     public gp(b: GA) {
         return new GA(this.algebra, this.algebra.gp(this.vector, b.vector));
     }
@@ -671,5 +785,46 @@ export class MatrixMath {
             }
         }
         return c;
+    }
+    // Invert a square matrix using Gauss-Jordan elimination
+    public static invertSmall(m: Matrix): Matrix | null {
+        const n = m.length;
+        // Build augmented matrix [M | I]
+        const aug: number[][] = [];
+        for (let i = 0; i < n; i++) {
+            aug[i] = [...m[i], ...new Array(n).fill(0)];
+            aug[i][n + i] = 1;
+        }
+        for (let col = 0; col < n; col++) {
+            // Find pivot
+            let maxRow = col;
+            let maxVal = Math.abs(aug[col][col]);
+            for (let row = col + 1; row < n; row++) {
+                if (Math.abs(aug[row][col]) > maxVal) {
+                    maxVal = Math.abs(aug[row][col]);
+                    maxRow = row;
+                }
+            }
+            if (maxVal < 1e-14) return null; // singular
+            // Swap rows
+            [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+            // Scale pivot row
+            const pivot = aug[col][col];
+            for (let j = 0; j < 2 * n; j++) aug[col][j] /= pivot;
+            // Eliminate column
+            for (let row = 0; row < n; row++) {
+                if (row === col) continue;
+                const factor = aug[row][col];
+                for (let j = 0; j < 2 * n; j++) {
+                    aug[row][j] -= factor * aug[col][j];
+                }
+            }
+        }
+        // Extract inverse
+        const inv: Matrix = [];
+        for (let i = 0; i < n; i++) {
+            inv[i] = aug[i].slice(n);
+        }
+        return inv;
     }
 }
