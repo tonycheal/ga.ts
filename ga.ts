@@ -396,6 +396,106 @@ export class Algebra {
     public antiWedge(a: MultiVector, b: MultiVector) {
         return this.cayleyMul(a, b, this.antiWedgeTable);
     }
+    public gp(a: MultiVector, b: MultiVector) {
+        return this.cayleyMul(a, b, this.geometricProductTable);
+    }
+    public gradeOfBasis(basisName: string): number {
+        const bitmap = this.basisBitmap.get(basisName);
+        if (bitmap === undefined) return -1;
+        // popcount
+        let n = bitmap, count = 0;
+        while (n) { count += n & 1; n >>= 1; }
+        return count;
+    }
+    public gradeSelect(v: MultiVector, grade: number): MultiVector {
+        const result: MultiVector = {};
+        for (const basis in v) {
+            if (this.gradeOfBasis(basis) === grade) {
+                result[basis] = v[basis];
+            }
+        }
+        return this.sortVector(result);
+    }
+    public reverse(v: MultiVector): MultiVector {
+        // Reverse: each grade-k component gets factor (-1)^(k(k-1)/2)
+        const result: MultiVector = {};
+        for (const basis in v) {
+            const k = this.gradeOfBasis(basis);
+            const sign = (k * (k - 1) / 2) & 1 ? -1 : 1;
+            result[basis] = sign * v[basis];
+        }
+        return this.sortVector(result);
+    }
+    public leftContract(a: MultiVector, b: MultiVector): MultiVector {
+        // a⌋b = Σ <a_r * b_s>_{s-r} for s >= r
+        const result: MultiVector = {};
+        for (const basisA in a) {
+            for (const basisB in b) {
+                const r = this.gradeOfBasis(basisA);
+                const s = this.gradeOfBasis(basisB);
+                if (s >= r) {
+                    const product = this.geometricProductTable[basisA][basisB];
+                    for (const basisR in product) {
+                        if (this.gradeOfBasis(basisR) === s - r) {
+                            const n = product[basisR] * a[basisA] * b[basisB];
+                            result[basisR] = (result[basisR] || 0) + n;
+                            if (!result[basisR]) delete result[basisR];
+                        }
+                    }
+                }
+            }
+        }
+        return this.sortVector(result);
+    }
+    public dual(v: MultiVector): MultiVector {
+        // Right dual: v* = v ⌋ I⁻¹ (using right dual table)
+        const result: MultiVector = {};
+        for (const basis in v) {
+            const d = this.rightDualTable[basis];
+            for (const dBasis in d) {
+                const n = v[basis] * d[dBasis];
+                result[dBasis] = (result[dBasis] || 0) + n;
+                if (!result[dBasis]) delete result[dBasis];
+            }
+        }
+        return this.sortVector(result);
+    }
+    public unDual(v: MultiVector): MultiVector {
+        // Left undual: using left dual table
+        const result: MultiVector = {};
+        for (const basis in v) {
+            const d = this.leftDualTable[basis];
+            for (const dBasis in d) {
+                const n = v[basis] * d[dBasis];
+                result[dBasis] = (result[dBasis] || 0) + n;
+                if (!result[dBasis]) delete result[dBasis];
+            }
+        }
+        return this.sortVector(result);
+    }
+    public scalarProduct(a: MultiVector, b: MultiVector): number {
+        const product = this.gp(a, b);
+        return product["e"] || 0;
+    }
+    public normSquared(v: MultiVector): number {
+        return this.scalarProduct(v, this.reverse(v));
+    }
+    public normalize(v: MultiVector): MultiVector {
+        const ns = this.normSquared(v);
+        const mag = Math.sqrt(Math.abs(ns));
+        if (mag === 0) return v;
+        return this.scale(1 / mag, v);
+    }
+    public sandwich(r: MultiVector, x: MultiVector): MultiVector {
+        // R x R† — sandwich product
+        return this.gp(this.gp(r, x), this.reverse(r));
+    }
+    public inverse(v: MultiVector): MultiVector {
+        // For versors: v⁻¹ = reverse(v) / normSquared(v)
+        const ns = this.normSquared(v);
+        if (ns === 0) throw new Error("Cannot invert: norm squared is zero");
+        return this.scale(1 / ns, this.reverse(v));
+    }
     public dumpTable(table: CayleyTable) {
         const basis = this.basis;
         let line = "";
@@ -457,11 +557,53 @@ export class GA {
     public toString() {
         return this.algebra.toString(this.vector);
     }
+    public add(b: GA) {
+        return new GA(this.algebra, this.algebra.add(this.vector, b.vector));
+    }
+    public sub(b: GA) {
+        return new GA(this.algebra, this.algebra.sub(this.vector, b.vector));
+    }
+    public scale(s: number) {
+        return new GA(this.algebra, this.algebra.scale(s, this.vector));
+    }
     public wedge(b: GA) {
         return new GA(this.algebra, this.algebra.wedge(this.vector, b.vector));
     }
     public antiWedge(b: GA) {
         return new GA(this.algebra, this.algebra.antiWedge(this.vector, b.vector));
+    }
+    public gp(b: GA) {
+        return new GA(this.algebra, this.algebra.gp(this.vector, b.vector));
+    }
+    public grade(k: number) {
+        return new GA(this.algebra, this.algebra.gradeSelect(this.vector, k));
+    }
+    public reverse() {
+        return new GA(this.algebra, this.algebra.reverse(this.vector));
+    }
+    public leftContract(b: GA) {
+        return new GA(this.algebra, this.algebra.leftContract(this.vector, b.vector));
+    }
+    public dual() {
+        return new GA(this.algebra, this.algebra.dual(this.vector));
+    }
+    public unDual() {
+        return new GA(this.algebra, this.algebra.unDual(this.vector));
+    }
+    public normSquared(): number {
+        return this.algebra.normSquared(this.vector);
+    }
+    public normalize() {
+        return new GA(this.algebra, this.algebra.normalize(this.vector));
+    }
+    public sandwich(x: GA) {
+        return new GA(this.algebra, this.algebra.sandwich(this.vector, x.vector));
+    }
+    public scalarProduct(b: GA): number {
+        return this.algebra.scalarProduct(this.vector, b.vector);
+    }
+    public inverse() {
+        return new GA(this.algebra, this.algebra.inverse(this.vector));
     }
 }
 
