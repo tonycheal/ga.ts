@@ -31,6 +31,9 @@ export class Algebra {
     public m: Matrix[] = []; // root
     public g: Matrix[] = []; // metric
     public debug: Matrix[] = [];
+    public subscriptOrder: Map<string, number> = new Map();
+    public basisBitmap: Map<string, number> = new Map();
+    public bitmapBasis: Map<number, string> = new Map();
     constructor(positive: number | number[] | BasisMap[]= 3, negative: number  | {algebra: Algebra, transform: Matrix} = 1, zero: number = 0) {
         this.parent = null;
         if (Array.isArray(positive)) {
@@ -65,13 +68,18 @@ export class Algebra {
             }
         }
         this.degree = this.squares.length;
+        this.subscripts.forEach((s, i) => this.subscriptOrder.set(s, i));
         if (typeof negative === 'number') {
             this.transform = MatrixMath.create(this.degree, this.degree, 1); // identity
         } else {
             this.transform = negative.transform;
         }
-        const {b, onesMap} = this.makeBasis();
+        const {b, onesMap, bitmaps} = this.makeBasis();
         this.basis = b;
+        b.forEach((name, i) => {
+            this.basisBitmap.set(name, bitmaps[i]);
+            this.bitmapBasis.set(bitmaps[i], name);
+        });
         this.basisGrades = [];
         for (const b of this.basis) {
             if (!this.basisGrades[b.length - 1]) {
@@ -96,10 +104,14 @@ export class Algebra {
                 this.g[bits] = MatrixMath.mul(MatrixMath.transpose(this.m[bits]),
                     MatrixMath.mul(this.parent.g[bits], this.m[bits]));
             } else {
+                // Base algebra (no parent) is always orthogonal (defined by signature),
+                // so g[1] is diagonal and we only need diagonal entries for higher grades.
+                // Non-orthogonal metrics only arise in child algebras via the M^T G M path above.
                 this.g[bits] = MatrixMath.create(this.basisGrades[bits].length, this.basisGrades[bits].length);
                 this.basisGrades[bits].forEach((basis, index) =>  {
-                    const left = this.basisGrades[1].indexOf('e' + basis[1]);
-                    const right = this.basisGrades[bits - 1].indexOf('e' + basis.substring(2));
+                    const subs = this.parseSubscripts(basis);
+                    const left = this.basisGrades[1].indexOf('e' + subs[0]);
+                    const right = this.basisGrades[bits - 1].indexOf('e' + subs.slice(1).join(''));
                     this.g[bits][index][index] = this.g[1][left][left] * this.g[bits-1][right][right];
                 });
             }
@@ -121,6 +133,26 @@ export class Algebra {
         });
         return ones;
     }
+    // Parse a basis element name like "e12m" into subscript strings ["1","2","m"]
+    // Uses greedy matching against known subscripts (longest match first)
+    public parseSubscripts(basisName: string): string[] {
+        const s = basisName.startsWith("e") ? basisName.substring(1) : basisName;
+        if (s === "") return [];
+        const result: string[] = [];
+        // Sort subscripts longest-first for greedy matching
+        const sorted = [...this.subscripts].sort((a, b) => b.length - a.length);
+        let pos = 0;
+        while (pos < s.length) {
+            const match = sorted.find(sub => s.startsWith(sub, pos));
+            if (match) {
+                result.push(match);
+                pos += match.length;
+            } else {
+                throw new Error(`Cannot parse subscript at position ${pos} in "${basisName}"`);
+            }
+        }
+        return result;
+    }
     public makeBasis() {
         const onesMap: number[][] = [];
         const degree = this.degree;
@@ -139,7 +171,10 @@ export class Algebra {
         );
         const b = sortedOnesMap.map((bitmap) =>
             "e" + bitmap.map((bit) => this.subscripts[bit]).join(""))
-        return {b, onesMap};
+        // Compute bitmap value for each sorted basis element
+        const bitmaps = sortedOnesMap.map((ones) =>
+            ones.reduce((acc, bit) => acc | (1 << bit), 0));
+        return {b, onesMap, bitmaps};
     }
     public binary(a: MultiVector, b: MultiVector, f = (a: number, b: number) => a + b) {
         const keys = new Set(Object.keys(a)).union(new Set(Object.keys(b)));
@@ -169,8 +204,8 @@ export class Algebra {
             t[ea] = {}
             for (let b=0; b < 2**this.degree; b++) {
                 const eb = this.basis[b];
-                const left = ea.substring(1).split("");
-                const right = eb.substring(1).split("");
+                const left = this.parseSubscripts(ea);
+                const right = this.parseSubscripts(eb);
                 // so might have, say [1,2] [2,3]
                 // repeats mean the answer is 0
                 // remaining numbers need sorting - swaps keep negating the answer
@@ -185,7 +220,7 @@ export class Algebra {
                         const l = result[i], r = result[i+1];
                         if (l === r) {
                             zero = true;
-                        } else if (l > r) {
+                        } else if (this.subscriptOrder.get(l)! > this.subscriptOrder.get(r)!) {
                             result[i] = r; result[i+1] = l;
                             swapped = true;
                             swaps += 1;
@@ -228,9 +263,11 @@ export class Algebra {
     }
     public makeDualTable(side: "left" | "right") {
         const result: DualTable = {}
+        const allBits = (1 << this.degree) - 1; // bitmap of the pseudoscalar
         for (let a = 0; a < 2**this.degree; a++) {
             const ea = this.basis[a];
-            const ed = this.basis[2**this.degree - 1 - a];
+            const complementBitmap = allBits ^ this.basisBitmap.get(ea)!;
+            const ed = this.bitmapBasis.get(complementBitmap)!;
             const signVector= side == "left" ?
                 this.wedgeTable[ed][ea] :
                 this.wedgeTable[ea][ed];
@@ -246,8 +283,8 @@ export class Algebra {
             t[ea] = {}
             for (let b = 0; b < 2 ** this.degree; b++) {
                 const eb = this.basis[b];
-                const left = ea.substring(1).split("");
-                const right = eb.substring(1).split("");
+                const left = this.parseSubscripts(ea);
+                const right = this.parseSubscripts(eb);
                 const result = left.concat(right);
                 let swaps = 0;
                 let swapped = true;
@@ -256,7 +293,7 @@ export class Algebra {
                     swapped = false;
                     for (let i = 0; i < last; i++) {
                         const l = result[i], r = result[i+1];
-                       if (l > r) {
+                        if (this.subscriptOrder.get(l)! > this.subscriptOrder.get(r)!) {
                             result[i] = r; result[i+1] = l;
                             swapped = true;
                             swaps += 1;
@@ -379,21 +416,13 @@ export class Algebra {
 
     }
     public makeMn(bits: number) {
-        console.log("bits", bits);
-        // const previousInfo = this.onesMap.filter((ones) => ones.length === bits -1);
-        const vectors  = this.basisGrades[bits]; // names of our vectors
-        const mn = MatrixMath.create(vectors.length, vectors.length,1); // default to identity
+        const vectors = this.basisGrades[bits];
+        const mn = MatrixMath.create(vectors.length, vectors.length, 1); // default to identity
         if (this.parent) {
-            // const pVectors = this.parent.basisGrades[bits]; // names of parent vectors
-            // const pVectors1 = this.parent.basisGrades[1];
-            vectors.forEach((vector, index) => { // e.g. e134
-                console.log("vector", vector, vector[1], vector.slice(2));
-                const single = this.basisGrades[1].indexOf("e" + vector[1]); //basis[index]; // e.g. e1
-                const rest = this.basisGrades[bits - 1].indexOf("e" + vector.slice(2)); // e.g. e34
-                console.log(single, rest);
-                const x = this.parent!.basisGrades[1][single];
-                const y = this.parent!.basisGrades[bits-1][rest];
-                console.log(">>>", x,y);
+            vectors.forEach((vector, index) => {
+                const subs = this.parseSubscripts(vector);
+                const single = this.basisGrades[1].indexOf("e" + subs[0]);
+                const rest = this.basisGrades[bits - 1].indexOf("e" + subs.slice(1).join(""));
                 const left: MultiVector = {}
                 for (let i = 0; i < this.basisGrades[1].length; i++) {
                     if (this.m[1][i][single]) {
@@ -401,23 +430,18 @@ export class Algebra {
                     }
                 }
                 const right: MultiVector = {}
-                for (let i = 0; i < this.basisGrades[bits-1].length; i++) {
-                    if(this.m[bits-1][i][rest]) {
-                        right[this.parent!.basisGrades[bits-1][i]] = this.m[bits-1][i][rest];
+                for (let i = 0; i < this.basisGrades[bits - 1].length; i++) {
+                    if (this.m[bits - 1][i][rest]) {
+                        right[this.parent!.basisGrades[bits - 1][i]] = this.m[bits - 1][i][rest];
                     }
-                    // and that's the column in the result
                 }
-                console.log("wedge of ", left, right);
                 const answer = this.parent!.wedge(left, right);
-                console.log("answer ", answer);
                 for (let i = 0; i < this.parent!.basisGrades[bits].length; i++) {
                     const z = answer[this.parent!.basisGrades[bits][i]];
                     mn[i][index] = z ? z : 0;
                 }
             });
         }
-        console.log(this.basisGrades[bits]);
-        console.log("m[" + bits + "]", mn);
         return mn;
     }
 }
