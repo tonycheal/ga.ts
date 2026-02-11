@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GA Equation Editor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: ui-monospace, "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    padding: 24px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #888;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .toolbar-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .toolbar-group + .toolbar-group {
+    margin-left: 8px;
+    padding-left: 12px;
+    border-left: 1px solid #333;
+  }
+
+  .group-label {
+    font-size: 0.65rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    width: 100%;
+    margin-bottom: 2px;
+  }
+
+  button.sym {
+    background: #2a2a2a;
+    color: #c8d8ff;
+    border: 1px solid #3a3a3a;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  button.sym:hover {
+    background: #353535;
+    border-color: #5a7aff;
+    color: #fff;
+  }
+
+  button.sym:active {
+    background: #2a3a6a;
+    border-color: #7090ff;
+  }
+
+  button.sym.op {
+    color: #ffcc80;
+  }
+
+  button.sym.basis {
+    color: #80ffc8;
+  }
+
+  button.sym.greek {
+    color: #ff9de2;
+  }
+
+  button.sym.util {
+    color: #aaaaaa;
+  }
+
+  .editor-wrap {
+    position: relative;
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 260px;
+    background: #111;
+    color: #e8ffe8;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-family: inherit;
+    font-size: 1.05rem;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+    caret-color: #7090ff;
+  }
+
+  textarea:focus {
+    border-color: #5a7aff;
+  }
+
+  .bottom-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .copy-btn {
+    background: #2a3a6a;
+    color: #c8d8ff;
+    border: 1px solid #4060aa;
+    border-radius: 5px;
+    padding: 7px 18px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s;
+  }
+
+  .copy-btn:hover {
+    background: #354a80;
+    border-color: #6080cc;
+  }
+
+  .copy-btn:active {
+    background: #1a2850;
+  }
+
+  .copy-feedback {
+    font-size: 0.8rem;
+    color: #60cc80;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .copy-feedback.show {
+    opacity: 1;
+  }
+
+  .char-count {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: #555;
+  }
+
+  .toolbar-row {
+    background: #1e1e1e;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+
+  .row-label {
+    font-size: 0.65rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .row-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+</style>
+</head>
+<body>
+
+<h1>GA Equation Editor</h1>
+
+<div class="toolbar-row">
+  <div class="row-label">Basis vectors</div>
+  <div class="row-buttons" id="basis-btns"></div>
+</div>
+
+<div class="toolbar-row">
+  <div class="row-label">Operators &amp; relations</div>
+  <div class="row-buttons" id="op-btns"></div>
+</div>
+
+<div class="toolbar-row">
+  <div class="row-label">Greek &amp; misc</div>
+  <div class="row-buttons" id="misc-btns"></div>
+</div>
+
+<div class="editor-wrap">
+  <textarea id="editor" spellcheck="false" placeholder="Type your GA expressions here…
+
+e.g.
+A = 3e₁ + 4e₂ + 12.5e∞ + e₀
+circle = A ∧ B ∧ C
+meet = circle ∨ line"></textarea>
+</div>
+
+<div class="bottom-bar">
+  <button class="copy-btn" id="copy-btn">Copy to clipboard</button>
+  <span class="copy-feedback" id="copy-feedback">Copied!</span>
+  <span class="char-count" id="char-count">0 chars</span>
+</div>
+
+<script>
+  // ── Symbol definitions ──────────────────────────────────────────────────────
+
+  // Basis vector subscripts
+  const subscripts = ['₀','₁','₂','₃','₄','₅'];
+  // Combined basis element labels (e + subscript combinations)
+  const basisSingle = subscripts.map(s => ({ label: 'e' + s, insert: 'e' + s }));
+
+  // Common compound basis bivectors / trivectors used in CGA
+  const basisCompound = [
+    { label: 'e₁₂',   insert: 'e₁₂'   },
+    { label: 'e₁₃',   insert: 'e₁₃'   },
+    { label: 'e₂₃',   insert: 'e₂₃'   },
+    { label: 'e₁₂₃',  insert: 'e₁₂₃'  },
+    { label: 'e₁∞',   insert: 'e₁∞'   },
+    { label: 'e₂∞',   insert: 'e₂∞'   },
+    { label: 'e₀∞',   insert: 'e₀∞'   },
+    { label: 'e₁₂∞',  insert: 'e₁₂∞'  },
+    { label: 'e₁₂₃∞', insert: 'e₁₂₃∞' },
+  ];
+
+  // Subscript digits standalone (for building custom basis names)
+  const subDigits = subscripts.map(s => ({ label: s, insert: s }));
+
+  // Special subscript symbols
+  const subSpecial = [
+    { label: '∞', insert: '∞' },
+    { label: '₊', insert: '₊' },
+    { label: '₋', insert: '₋' },
+  ];
+
+  const operators = [
+    { label: '∧',  insert: ' ∧ '  },
+    { label: '∨',  insert: ' ∨ '  },
+    { label: '⌋',  insert: ' ⌋ '  },
+    { label: '⌊',  insert: ' ⌊ '  },
+    { label: '·',  insert: ' · '  },
+    { label: '×',  insert: ' × '  },
+    { label: '†',  insert: '†'    },
+    { label: '*',  insert: ' * '  },
+    { label: '⁻¹', insert: '⁻¹'   },
+    { label: '√',  insert: '√'    },
+    { label: '±',  insert: '±'    },
+    { label: '=',  insert: ' = '  },
+    { label: '≠',  insert: ' ≠ '  },
+    { label: '≈',  insert: ' ≈ '  },
+    { label: '+',  insert: ' + '  },
+    { label: '−',  insert: ' − '  },
+    { label: '½',  insert: '½'    },
+    { label: '¼',  insert: '¼'    },
+  ];
+
+  const misc = [
+    { label: 'α', insert: 'α' },
+    { label: 'β', insert: 'β' },
+    { label: 'γ', insert: 'γ' },
+    { label: 'θ', insert: 'θ' },
+    { label: 'φ', insert: 'φ' },
+    { label: 'ψ', insert: 'ψ' },
+    { label: 'λ', insert: 'λ' },
+    { label: 'μ', insert: 'μ' },
+    { label: 'ω', insert: 'ω' },
+    { label: 'Ω', insert: 'Ω' },
+    { label: 'ℝ', insert: 'ℝ' },
+    { label: '⟨', insert: '⟨' },
+    { label: '⟩', insert: '⟩' },
+    { label: '‖', insert: '‖' },
+    { label: '→', insert: ' → ' },
+    { label: '↦', insert: ' ↦ ' },
+    { label: '∀', insert: '∀ ' },
+    { label: '∈', insert: ' ∈ ' },
+    { label: '⊂', insert: ' ⊂ ' },
+    { label: '…', insert: '…' },
+  ];
+
+  // ── Render buttons ──────────────────────────────────────────────────────────
+
+  function makeBtn(sym, extraClass = '') {
+    const btn = document.createElement('button');
+    btn.className = 'sym' + (extraClass ? ' ' + extraClass : '');
+    btn.textContent = sym.label;
+    btn.title = 'Insert: ' + sym.insert;
+    btn.addEventListener('click', () => insertAt(sym.insert));
+    return btn;
+  }
+
+  function makeSeparator() {
+    const sep = document.createElement('span');
+    sep.style.cssText = 'display:inline-block;width:1px;height:20px;background:#333;margin:0 4px;align-self:center;';
+    return sep;
+  }
+
+  const basisContainer = document.getElementById('basis-btns');
+  basisSingle.forEach(s => basisContainer.appendChild(makeBtn(s, 'basis')));
+  basisContainer.appendChild(makeSeparator());
+  basisCompound.forEach(s => basisContainer.appendChild(makeBtn(s, 'basis')));
+  basisContainer.appendChild(makeSeparator());
+  subDigits.forEach(s => basisContainer.appendChild(makeBtn(s, 'util')));
+  subSpecial.forEach(s => basisContainer.appendChild(makeBtn(s, 'util')));
+
+  const opContainer = document.getElementById('op-btns');
+  operators.forEach(s => opContainer.appendChild(makeBtn(s, 'op')));
+
+  const miscContainer = document.getElementById('misc-btns');
+  misc.forEach(s => miscContainer.appendChild(makeBtn(s, 'greek')));
+
+  // ── Insert at cursor ────────────────────────────────────────────────────────
+
+  const editor = document.getElementById('editor');
+
+  function insertAt(text) {
+    editor.focus();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const before = editor.value.substring(0, start);
+    const after = editor.value.substring(end);
+    editor.value = before + text + after;
+    const pos = start + text.length;
+    editor.selectionStart = pos;
+    editor.selectionEnd = pos;
+    updateCharCount();
+    // Trigger input event so any future listeners pick it up
+    editor.dispatchEvent(new Event('input'));
+  }
+
+  // ── Char count ──────────────────────────────────────────────────────────────
+
+  const charCountEl = document.getElementById('char-count');
+
+  function updateCharCount() {
+    const n = editor.value.length;
+    charCountEl.textContent = n + ' char' + (n === 1 ? '' : 's');
+  }
+
+  editor.addEventListener('input', updateCharCount);
+
+  // ── Copy to clipboard ───────────────────────────────────────────────────────
+
+  const copyBtn = document.getElementById('copy-btn');
+  const copyFeedback = document.getElementById('copy-feedback');
+  let feedbackTimer = null;
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(editor.value);
+    } catch {
+      // Fallback for non-secure contexts
+      editor.select();
+      document.execCommand('copy');
+    }
+    copyFeedback.classList.add('show');
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => copyFeedback.classList.remove('show'), 1800);
+  });
+
+  // ── Keyboard shortcut: Tab → 4 spaces (keeps textarea usable) ──────────────
+  editor.addEventListener('keydown', e => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      insertAt('    ');
+    }
+  });
+
+  // Init
+  updateCharCount();
+</script>
+</body>
+</html>
