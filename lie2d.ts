@@ -69,19 +69,21 @@ export function point(x: number, y: number): GA {
 
 /**
  * An oriented line: unit normal (nx, ny), signed distance d from the origin,
- * so the line is { p : p . n = d }. Flipping the sign of all three flips the
- * orientation. A line is the cycle with no eo component — a circle of infinite
- * radius — and orientation shows up as er = +-1.
+ * so the line is { p : p . n = d }. A line is the cycle with no eo component —
+ * a circle of infinite radius — and orientation is er = +-1.
+ *
+ * Note: `flip` negates ONLY er. Negating the whole vector would produce the
+ * SAME projective point, i.e. the same line, and so would do nothing at all.
+ * Orientation is never the overall sign — see normalise().
  */
 export function line(nx: number, ny: number, d: number, flip = false): GA {
     const l = Math.hypot(nx, ny);
-    const s = flip ? -1 : 1;
     return new GA(LIE2D, {
-        e1: s * nx / l,
-        e2: s * ny / l,
+        e1: nx / l,
+        e2: ny / l,
         eo: 0,
-        ei: s * d,
-        er: s,
+        ei: d,
+        er: flip ? -1 : 1,
     });
 }
 
@@ -123,16 +125,21 @@ export function cosAngle(a: GA, b: GA): number {
 }
 
 /**
- * Scale a cycle to canonical form: eo = 1 for circles and points, |er| = 1 for
- * lines. Lie vectors are homogeneous, so this picks a representative without
- * changing the geometry. The overall sign is preserved — it is the orientation.
+ * Scale a cycle to canonical form: eo = 1 for circles and points, er = 1 for
+ * lines. Lie vectors are homogeneous — k*X is the same object for EVERY k,
+ * negative included — so this picks one representative per object.
+ *
+ * Both divisors are signed, deliberately. Dividing a line by |er| would keep
+ * X and -X apart when they are the same line, and dividing a circle by |eo|
+ * would do the same. After normalising, a line always has er = +1 and its
+ * orientation is carried by the direction of its unit normal.
  */
 export function normalise(a: GA): GA {
     const v = a.vector;
     const o = v.eo ?? 0;
     if (Math.abs(o) > 1e-12) return a.scale(1 / o);
     const r = v.er ?? 0;
-    if (Math.abs(r) > 1e-12) return a.scale(1 / Math.abs(r));
+    if (Math.abs(r) > 1e-12) return a.scale(1 / r);
     const n = Math.hypot(v.e1 ?? 0, v.e2 ?? 0);
     return n > 1e-12 ? a.scale(1 / n) : a;
 }
@@ -140,7 +147,7 @@ export function normalise(a: GA): GA {
 export type Cycle =
     | {kind: "circle"; x: number; y: number; r: number}
     | {kind: "point";  x: number; y: number}
-    | {kind: "line";   nx: number; ny: number; d: number; flip: boolean}
+    | {kind: "line";   nx: number; ny: number; d: number}
     | {kind: "infinity"};
 
 /** Read a Lie vector back as ordinary plane geometry. */
@@ -151,10 +158,12 @@ export function decode(a: GA, tol = 1e-9): Cycle {
         const x = v.e1 ?? 0, y = v.e2 ?? 0, r = v.er ?? 0;
         return Math.abs(r) < tol ? {kind: "point", x, y} : {kind: "circle", x, y, r};
     }
+    // After normalise a line has er = +1, so the unit normal's direction is the
+    // orientation. There is no separate flip flag: reversing a line reverses
+    // its normal.
     const nx = v.e1 ?? 0, ny = v.e2 ?? 0;
     if (Math.hypot(nx, ny) < tol) return {kind: "infinity"};
-    const r = v.er ?? 0;
-    return {kind: "line", nx, ny, d: v.ei ?? 0, flip: r < 0};
+    return {kind: "line", nx, ny, d: v.ei ?? 0};
 }
 
 /** Drop the orientation coordinate to get the corresponding CGA 2D vector. */

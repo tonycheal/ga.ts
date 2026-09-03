@@ -105,6 +105,30 @@ console.log("--- Test 6: orientation is the sign of er ---");
            "orientation changes the tangency answer");
 }
 
+console.log("--- Test 6b: homogeneity and line orientation ---");
+{
+    // A Lie vector is a point of projective space: k*X is the SAME object for
+    // every k, negative included.
+    const C = cycle(3, 4, 2);
+    for (const k of [2, 0.1, -1, -7]) {
+        const d = decode(C.scale(k));
+        assert(d.kind === "circle" && approx(d.x, 3) && approx(d.y, 4) && approx(d.r, 2),
+               `scaling by ${k} leaves the object alone`);
+    }
+    // ...so orientation can never be the overall sign. For a line it is er
+    // alone: negating the whole vector gives back the same line.
+    const L = line(0, 1, 3);
+    const negated = L.scale(-1);
+    assert(inContact(cycle(0, 5, 2), L) === inContact(cycle(0, 5, 2), negated),
+           "negating a whole line changes nothing");
+    // Reversing er really does swap which side it touches.
+    const above = cycle(0, 5, 2), below = cycle(0, 1, 2);
+    assert(inContact(above, line(0, 1, 3)),        "r=2 at (0,5) touches the line from above");
+    assert(!inContact(below, line(0, 1, 3)),       "...and (0,1) does not");
+    assert(!inContact(above, line(0, 1, 3, true)), "reversed: (0,5) no longer touches");
+    assert(inContact(below, line(0, 1, 3, true)),  "reversed: (0,1) now does");
+}
+
 console.log("--- Test 7: decode round-trips ---");
 {
     const c = decode(cycle(3, -4, 2.5));
@@ -113,10 +137,12 @@ console.log("--- Test 7: decode round-trips ---");
     const p = decode(point(1, 7));
     assert(p.kind === "point" && approx(p.x, 1) && approx(p.y, 7), "point round-trip");
     const l = decode(line(0, 1, 3));
-    assert(l.kind === "line" && approx(l.nx, 0) && approx(l.ny, 1) && approx(l.d, 3) && !l.flip,
+    assert(l.kind === "line" && approx(l.nx, 0) && approx(l.ny, 1) && approx(l.d, 3),
            "line round-trip");
+    // Reversing a line reverses its normal — there is no separate flip flag.
     const lf = decode(line(0, 1, 3, true));
-    assert(lf.kind === "line" && lf.flip, "flipped line round-trip");
+    assert(lf.kind === "line" && approx(lf.nx, 0) && approx(lf.ny, -1) && approx(lf.d, -3),
+           "reversed line round-trip: the normal turns round");
     assert(decode(infinity).kind === "infinity", "infinity round-trip");
     // Homogeneity: any positive scaling decodes the same.
     const s = decode(cycle(3, -4, 2.5).scale(7));

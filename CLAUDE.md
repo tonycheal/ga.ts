@@ -27,7 +27,7 @@ for the Lie sphere geometry finding that shapes the Apollonius work.
 | `lie2d.ts` | Lie sphere geometry `R(3,2)`: oriented cycles in the plane |
 | `interpreter.ts` | expression language — `e1 ∧ e2 ∨ e3` evaluated against an `Algebra` |
 | `test-cga2d.ts` | CGA 2D tests, 102 assertions |
-| `test-lie2d.ts` | Lie sphere tests, 57 assertions |
+| `test-lie2d.ts` | Lie sphere tests, 66 assertions |
 | `test-interpreter.ts` | interpreter tests, 49 assertions |
 | `LIESPHERE.md` | why Apollonius's `lcp` records are Lie sphere vectors |
 | `RIPPLES.html` | the same thing in plain English, open it in a browser |

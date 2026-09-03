@@ -1,7 +1,7 @@
 # LIESPHERE.md — Apollonius's `lcp` is a Lie sphere vector
 
 *Written 2026-09-02, after tracing `tan2G` / `tan3G` in `~/Dev/apollonius`.
-Every numeric claim here is checked in `test-lie2d.ts` (57 assertions).*
+Every numeric claim here is checked in `test-lie2d.ts` (66 assertions).*
 
 ## The finding
 
@@ -140,4 +140,4 @@ downstream sign fiddling.
 
 - `lie2d.ts` — the `R(3,2)` algebra, `cycle`/`point`/`line`, `inner`,
   `inContact`, `cosAngle`, `decode`, `toCGA`.
-- `test-lie2d.ts` — 57 assertions covering all of the above.
+- `test-lie2d.ts` — 66 assertions covering all of the above.
