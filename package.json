@@ -1,0 +1,44 @@
+{
+  "name": "ga.ts",
+  "version": "0.1.0",
+  "description": "A TypeScript Geometric Algebra library, with first-class basis change between algebras",
+  "license": "MIT",
+  "author": "Tony Cheal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tonycheal/ga.ts.git"
+  },
+  "homepage": "https://github.com/tonycheal/ga.ts#readme",
+  "keywords": [
+    "geometric-algebra",
+    "clifford-algebra",
+    "conformal-geometric-algebra",
+    "cga",
+    "multivector",
+    "geometry"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/ga.js",
+  "types": "./dist/ga.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/ga.d.ts",
+      "import": "./dist/ga.js"
+    }
+  },
+  "files": [
+    "dist",
+    "ga.ts"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json",
+    "type-check": "tsc -p tsconfig.json",
+    "test": "bun run test-cga2d.ts && bun run test-lie2d.ts && bun run test-interpreter.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "typescript": "~5.9.2"
+  }
+}
