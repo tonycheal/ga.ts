@@ -75,14 +75,7 @@ const drag = {
 
 /* ------------------------------------------------------ 3. the Laguerre shear */
 
-function offset(d, X) {
-    const { e1 = 0, e2 = 0, eo = 0, ei = 0, er = 0 } = X.vector;
-    return new GA(LIE2D, {
-        e1, e2, eo,
-        ei: ei - d * er - ((d * d) / 2) * eo,
-        er: er + d * eo,
-    });
-}
+const { offset } = S2;   // dimension-generic; see solver.js
 
 const laguerre = {
     id: "laguerre",

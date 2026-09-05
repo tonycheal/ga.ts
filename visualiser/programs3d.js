@@ -10,7 +10,7 @@ import { LIE3D, cycle, point, plane, inner, decode, normalise } from "../dist/li
 import { S3, patterns, patternName, applyPattern } from "./solver.js";
 import { tangentCone } from "./viz3d.js";
 
-const { solve, atAngle, reverse } = S3;
+const { solve, atAngle, reverse, offset } = S3;
 
 const INPUT = "#6E8079";
 const SOL_A = "#2E9B80";
@@ -106,14 +106,7 @@ const angles = {
 
 /* ------------------------------------------------------ 4. the Laguerre shear */
 
-function offset(d, X) {
-    const { e1 = 0, e2 = 0, e3 = 0, eo = 0, ei = 0, er = 0 } = X.vector;
-    return new GA(LIE3D, {
-        e1, e2, e3, eo,
-        ei: ei - d * er - ((d * d) / 2) * eo,
-        er: er + d * eo,
-    });
-}
+// offset comes from S3 — the SAME function the 2D programs use.
 
 const laguerre = {
     id: "laguerre3",

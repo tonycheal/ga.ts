@@ -95,7 +95,25 @@ export function makeSolver(algebra, basis) {
         });
     }
 
-    return { solve, atAngle, reverse, dot, basis, algebra };
+    /**
+     * The Laguerre shear: add `d` to every radius. Circles and spheres grow,
+     * lines and planes slide, points become cycles of radius d — one linear
+     * map, no case analysis. In the ripple picture it is simply time passing.
+     *
+     * Note what it does NOT mention: e1, e2, e3. Only ei and er move, and
+     * everything else is passed through, so this one function is already
+     * correct in any dimension.
+     */
+    const offset = (d, X) => {
+        const v = X.vector;
+        return new GA(algebra, {
+            ...v,
+            ei: (v.ei ?? 0) - d * (v.er ?? 0) - ((d * d) / 2) * (v.eo ?? 0),
+            er: (v.er ?? 0) + d * (v.eo ?? 0),
+        });
+    };
+
+    return { solve, atAngle, reverse, offset, dot, basis, algebra };
 }
 
 export const S2 = makeSolver(LIE2D, ["e1", "e2", "eo", "ei", "er"]);
