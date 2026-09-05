@@ -25,11 +25,21 @@
     ".": {
       "types": "./dist/ga.d.ts",
       "import": "./dist/ga.js"
+    },
+    "./lie2d": {
+      "types": "./dist/lie2d.d.ts",
+      "import": "./dist/lie2d.js"
+    },
+    "./interpreter": {
+      "types": "./dist/interpreter.d.ts",
+      "import": "./dist/interpreter.js"
     }
   },
   "files": [
     "dist",
-    "ga.ts"
+    "ga.ts",
+    "lie2d.ts",
+    "interpreter.ts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

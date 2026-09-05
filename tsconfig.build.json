@@ -9,5 +9,5 @@
     "rootDir": ".",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["ga.ts"]
+  "include": ["ga.ts", "lie2d.ts", "interpreter.ts"]
 }
