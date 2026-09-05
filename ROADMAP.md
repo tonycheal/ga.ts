@@ -15,6 +15,7 @@ Working and tested:
 | CGA 2D — points, lines, circles, meets, reflections | `test-cga2d.ts` | 102 assertions, all pass |
 | Lie sphere 2D — oriented cycles | `lie2d.ts`, `test-lie2d.ts` | 66 assertions, all pass |
 | Expression interpreter (`e1 ∧ e2 ∨ e3` etc.) | `interpreter.ts`, `test-interpreter.ts` | 49 assertions, all pass |
+| 2D visualiser — watch oriented cycles move | `visualiser/` | 7 programs; `npm run build` first, not in the package |
 | Symbol-entry helper app | `equation-editor/index.html` | standalone, works |
 
 The four bugs listed in the old `CLAUDE.md` (subscript ordering, dual bitmap
@@ -248,7 +249,9 @@ Solution counts fall out of the dimension arithmetic: n+3 homogeneous numbers,
 n+1 constraints, sign patterns pairing up — **8 circles tangent to 3 circles,
 16 spheres tangent to 4 spheres.** Both classical. Use them as tests.
 
-Deliverables: `lsg.ts`, `test-lsg.ts`. Build 2D end-to-end and check it against
+Deliverables: `lsg.ts`, `test-lsg.ts` — and **delete `visualiser/solver.js`**, the
+stopgap that exists only so the visualiser has something to drive it, pointing
+`visualiser/programs.js` at the real solver instead. Build 2D end-to-end and check it against
 `tan3G` *before* generalising the dimension — the generic version is more
 convincing once there is something to check it against.
 
@@ -323,10 +326,14 @@ them. What that means concretely:
   repo. Take it. `@tonycheal/ga` is also free as a fallback.
 - **Licence:** MIT. Nothing about a fame-not-fortune goal is served by a
   restrictive licence, and permissive licensing is what gets a library used.
-- **Minimum viable package:** `package.json` with `exports`, TypeScript
-  `declaration` output, `tsup` or plain `tsc` for a dual ESM build, and a
-  `README.md` that leads with a *worked example* (the Apollonius picture) not
-  a feature list. Currently `README.md` is three lines.
+- **Minimum viable package:** done as of `7a4f490` / `f94a4ec` — `package.json`
+  with subpath `exports` for `./lie2d` and `./interpreter`, declarations, and a
+  `prepare` script so a GitHub install builds itself. Still outstanding: a
+  `README.md` that leads with a *worked example* (the Apollonius picture)
+  rather than a feature list. It is currently three lines.
+- **Tag before recommending an install.** `v0.1.0` sits on `7a4f490`, which
+  predates the `./lie2d` export, so installs from that tag cannot reach the
+  Lie layer at all.
 - **What actually earns attention** is the differentiator, and it is not
   "another GA library": it is (a) the parent-algebra/transform basis-change
   machinery, which most libraries do not expose at all, and (b) Lie sphere

@@ -225,11 +225,13 @@ const angles = {
     id: "angles",
     name: "Sweep the angle",
     blurb: "Not tangency — meet all three at θ. Tangency is just θ = 0, and 90° gives the radical circle.",
-    pingpong: true,
     halfWidth: 7,
     cx: 2, cy: 1,
+    // A full turn, not a 0..180 yo-yo. cos(360°) = cos(0°), so the loop closes
+    // seamlessly where a bounce would visibly stall at each end — and an angle
+    // that keeps increasing is what an angle does.
     frame(t) {
-        const theta = lerp(0, 180, t);
+        const theta = lerp(0, 360, t);
         const base = [cycle(0, 0, 1), cycle(4, 0, 1), cycle(2, 3, 1)];
         const sols = solve(base.map((c) => atAngle(c, theta)));
         const rs = sols.map((s) => decode(normalise(s))).filter((d) => d.kind === "circle");
@@ -239,7 +241,7 @@ const angles = {
                 ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, width: 2.5, centre: false })),
             ],
             note: `θ = ${theta.toFixed(0)}°   ·   r = ${rs.map((d) => fixed(d.r)).join(", ") || "none"}` +
-                  (Math.abs(theta - 90) < 1.5 ? "   ·   radical circle" : ""),
+                  (Math.abs(Math.cos((theta * Math.PI) / 180)) < 0.02 ? "   ·   radical circle" : ""),
         };
     },
 };
