@@ -27,8 +27,15 @@ function shape(X, style = {}) {
     return { ...d, ...style };
 }
 
-const radiiOf = (sols) =>
-    sols.map((s) => decode(normalise(s))).filter((d) => d.kind === "sphere").map((d) => d.r);
+/** Describe a solution: a solve can legitimately return a PLANE. */
+const describe = (d) =>
+    d.kind === "sphere" ? `r =${fixed(d.r)}`
+  : d.kind === "plane"  ? `plane n = (${fixed(d.nx, 2)},${fixed(d.ny, 2)},${fixed(d.nz, 2)}) d =${fixed(d.d, 2)}`
+  : d.kind === "point"  ? "point"
+  : "infinity";
+
+const describeAll = (sols) =>
+    sols.map((x) => describe(decode(normalise(x)))).join("   ") || "no real solution";
 
 /* ------------------------------------------ 1. the sixteen tangent spheres */
 
@@ -55,7 +62,7 @@ const sixteen = {
                 ...ins.map((c) => shape(c, { stroke: INPUT, opacity: 0.3, wire: 0.3 })),
                 ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, opacity: 0.3, wire: 0.22 })),
             ],
-            note: `pattern ${patternName(pat)}   ·   r = ${radiiOf(sols).map((r) => fixed(r)).join(", ") || "no real solution"}`,
+            note: `pattern ${patternName(pat)}   ·   ${describeAll(sols)}`,
         };
     },
 };
@@ -77,7 +84,7 @@ const drag = {
                 ...ins.map((c, k) => shape(c, { stroke: k === 3 ? HOT : INPUT, opacity: 0.16 })),
                 ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, opacity: 0.22 })),
             ],
-            note: `moving sphere at z = ${fixed(z, 2)}   ·   r = ${radiiOf(sols).map((r) => fixed(r)).join(", ") || "none"}`,
+            note: `moving sphere at z =${fixed(z, 2)}   ·   ${describeAll(sols)}`,
         };
     },
 };
@@ -98,7 +105,7 @@ const angles = {
                 ...TETRA.map((c) => shape(c, { stroke: INPUT, opacity: 0.16 })),
                 ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, opacity: 0.22 })),
             ],
-            note: `θ = ${theta.toFixed(0)}°   ·   r = ${radiiOf(sols).map((r) => fixed(r)).join(", ") || "none"}` +
+            note: `θ = ${theta.toFixed(0)}°   ·   ${describeAll(sols)}` +
                   (orth ? "   ·   orthogonal sphere" : ""),
         };
     },

@@ -17,6 +17,20 @@ const HOT   = "#C0553E";
 const lerp = (a, b, t) => a + (b - a) * t;
 const fixed = (v, n = 3) => (v < 0 ? "" : " ") + v.toFixed(n);
 
+/**
+ * Describe a solution for the readout. A solve can legitimately return a
+ * LINE — a cycle of infinite radius — and saying nothing at all in that case
+ * looks like a failure rather than an answer.
+ */
+const describe = (d) =>
+    d.kind === "circle" ? `r =${fixed(d.r)}`
+  : d.kind === "line"   ? `line n = (${fixed(d.nx, 2)},${fixed(d.ny, 2)}) d =${fixed(d.d, 2)}`
+  : d.kind === "point"  ? "point"
+  : "infinity";
+
+const describeAll = (sols) =>
+    sols.map((x) => describe(decode(normalise(x)))).join("   ") || "no real solution";
+
 /* --------------------------------------------- 1. the eight tangent circles */
 
 const eight = {
@@ -38,13 +52,9 @@ const eight = {
                 shape(s, { stroke: k === 0 ? SOL_A : SOL_B, width: 2.5, centre: false })
             ),
         ];
-        const radii = sols
-            .map((s) => decode(normalise(s)))
-            .filter((d) => d.kind === "circle")
-            .map((d) => fixed(d.r));
         return {
             shapes,
-            note: `pattern ${patternName(pat)}   ·   r = ${radii.join(", ") || "no real solution"}`,
+            note: `pattern ${patternName(pat)}   ·   ${describeAll(sols)}`,
         };
     },
 };
@@ -59,16 +69,18 @@ const drag = {
     halfWidth: 8,
     cx: 2, cy: 1,
     frame(t) {
-        const y = lerp(-2.5, 6.5, t);
+        // Symmetric about zero on purpose: at t = 0.5 the three centres are
+        // collinear and equal-radius, so the answers become LINES. Scrub or
+        // step to the middle to land on it exactly.
+        const y = lerp(-4.5, 4.5, t);
         const ins = [cycle(0, 0, 1), cycle(4, 0, 1), cycle(2.2, y, 1)];
         const sols = solve(ins.map((c) => atAngle(c, 0)));
-        const rs = sols.map((s) => decode(normalise(s))).filter((d) => d.kind === "circle");
         return {
             shapes: [
                 ...ins.map((c, k) => shape(c, { stroke: k === 2 ? HOT : INPUT, width: 2 })),
                 ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, width: 2.5, centre: false })),
             ],
-            note: `moving circle at y = ${fixed(y, 2)}   ·   r = ${rs.map((d) => fixed(d.r)).join(", ")}`,
+            note: `moving circle at y =${fixed(y, 2)}   ·   ${describeAll(sols)}`,
         };
     },
 };
@@ -227,13 +239,12 @@ const angles = {
         const theta = lerp(0, 360, t);
         const base = [cycle(0, 0, 1), cycle(4, 0, 1), cycle(2, 3, 1)];
         const sols = solve(base.map((c) => atAngle(c, theta)));
-        const rs = sols.map((s) => decode(normalise(s))).filter((d) => d.kind === "circle");
         return {
             shapes: [
                 ...base.map((c) => shape(c, { stroke: INPUT, width: 2 })),
                 ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, width: 2.5, centre: false })),
             ],
-            note: `θ = ${theta.toFixed(0)}°   ·   r = ${rs.map((d) => fixed(d.r)).join(", ") || "none"}` +
+            note: `θ = ${theta.toFixed(0)}°   ·   ${describeAll(sols)}` +
                   (Math.abs(Math.cos((theta * Math.PI) / 180)) < 0.02 ? "   ·   radical circle" : ""),
         };
     },

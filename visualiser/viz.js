@@ -227,6 +227,9 @@ export function makePlayer({ paint, onFrame }) {
             const n = program?.steps;
             t = n ? Math.max(0, Math.min(1, t + Math.sign(delta) / (n - 1)))
                   : Math.max(0, Math.min(1, t + delta));
+            // keep stepping on a clean grid, so a program's interesting
+            // midpoint is reachable exactly rather than to within 1e-16
+            t = Math.round(t * 1e6) / 1e6;
             draw();
         },
         redraw: draw,
