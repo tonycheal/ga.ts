@@ -8,6 +8,7 @@
 import { GA } from "../dist/ga.js";
 import { LIE3D, cycle, point, plane, inner, decode, normalise } from "../dist/lie3d.js";
 import { S3, patterns, patternName, applyPattern } from "./solver.js";
+import { tangentCone } from "./viz3d.js";
 
 const { solve, atAngle, reverse } = S3;
 
@@ -186,24 +187,32 @@ const inversion = {
 const quadrance = {
     id: "quadrance3",
     name: "Quadrance and the light cone",
-    blurb: "Q = −2 (X·Y) is the squared common-tangent length. Identical formula to 2D, identical signs.",
+    blurb: "Q = −2 (X·Y) is the squared common-tangent length. In space the common tangents form a cone — literally the light cone of the pair.",
     pingpong: true,
-    halfWidth: 7,
+    halfWidth: 8,
     frame(t) {
-        const A = cycle(-2.2, 0, 0, 2.6);
+        const rA = 2.6, rB = 1.1;
+        const A = cycle(-2.2, 0, 0, rA);
         const d = lerp(0.4, 7.5, t);
-        const B = cycle(-2.2 + d, 0, 0, 1.1);
+        const B = cycle(-2.2 + d, 0, 0, rB);
         const Q = -2 * inner(A, B);
-        const verdict = Math.abs(Q) < 1e-9 ? "LIGHTLIKE — they touch"
-                      : Q > 0 ? "spacelike — a real common tangent exists"
-                              : "TIMELIKE — one inside the other, no common tangent";
-        return {
-            shapes: [
-                shape(A, { stroke: INPUT, opacity: 0.18 }),
-                shape(B, { stroke: HOT, opacity: 0.22 }),
-            ],
-            note: `d = ${fixed(d, 2)}   ·   Q = ${fixed(Q, 3)}   ·   ${verdict}`,
-        };
+        const shapes = [
+            shape(A, { stroke: INPUT, opacity: 0.18 }),
+            shape(B, { stroke: HOT, opacity: 0.22 }),
+        ];
+        let verdict;
+        if (Q > 1e-9) {
+            // In 2D this was two tangent lines; in 3D they sweep into a cone
+            // with its apex at the external homothetic centre.
+            const cone = tangentCone([-2.2, 0, 0], rA, [-2.2 + d, 0, 0], rB);
+            if (cone) shapes.push({ kind: "cone", ...cone, stroke: SOL_A, opacity: 0.11, wire: 0.22 });
+            verdict = "spacelike — a real common tangent cone exists";
+        } else if (Q < -1e-9) {
+            verdict = "TIMELIKE — one inside the other, no common tangent";
+        } else {
+            verdict = "LIGHTLIKE — they touch";
+        }
+        return { shapes, note: `d = ${fixed(d, 2)}   ·   Q = ${fixed(Q, 3)}   ·   ${verdict}` };
     },
 };
 

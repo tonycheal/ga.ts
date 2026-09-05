@@ -120,6 +120,13 @@ function drawShape(ctx, view, T, s) {
         ctx.beginPath();
         ctx.arc(T.sx(s.x), T.sy(s.y), s.big ? 5 : 3.5, 0, Math.PI * 2);
         ctx.fill();
+    } else if (s.kind === "segment") {
+        // bounded, unlike a line: used for a cone's silhouette, which stops
+        // at the apex
+        ctx.beginPath();
+        ctx.moveTo(T.sx(s.x1), T.sy(s.y1));
+        ctx.lineTo(T.sx(s.x2), T.sy(s.y2));
+        ctx.stroke();
     } else if (s.kind === "line") {
         // p0 is the foot of the perpendicular from the origin
         const p0x = s.nx * s.d, p0y = s.ny * s.d;

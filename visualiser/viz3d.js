@@ -59,9 +59,68 @@ export function project(shapes, dir) {
             const len = Math.hypot(n2[0], n2[1]);
             if (len < 1e-6) continue;                 // face-on: no trace
             out.push({ kind: "line", nx: n2[0]/len, ny: n2[1]/len, d: s.d/len, ...style });
+        } else if (s.kind === "cone") {
+            // A cone's outline from any direction is two generators through
+            // the apex. Find them by projecting the rim and taking the two
+            // extremes in angle about the projected apex — the pair either
+            // side of the widest gap, which handles wrap-around for free.
+            const e = flat(s.apex);
+            const pts = coneRim(s).map(flat);
+            const ang = pts.map((q) => Math.atan2(q[1] - e[1], q[0] - e[0]))
+                            .map((a, i) => [a, i])
+                            .sort((p, q) => p[0] - q[0]);
+            let gap = -1, at = 0;
+            for (let i = 0; i < ang.length; i++) {
+                const j = (i + 1) % ang.length;
+                let g = ang[j][0] - ang[i][0];
+                if (g < 0) g += 2 * Math.PI;
+                if (g > gap) { gap = g; at = i; }
+            }
+            for (const k of [at, (at + 1) % ang.length]) {
+                const q = pts[ang[k][1]];
+                out.push({ kind: "segment", x1: e[0], y1: e[1], x2: q[0], y2: q[1], ...style });
+            }
         }
     }
     return out;
+}
+
+/**
+ * The far rim of a cone: `n` points on the circle where its generators end.
+ * `cone` is {apex, axis (unit), halfAngle, length}.
+ */
+export function coneRim(cone, n = 180) {
+    const u = norm(cone.axis);
+    let a = cross(u, Math.abs(u[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0]);
+    a = norm(a);
+    const b = cross(u, a);
+    const R = cone.length * Math.tan(cone.halfAngle);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+        const th = (2 * Math.PI * i) / n;
+        out.push([0, 1, 2].map((k) =>
+            cone.apex[k] + u[k] * cone.length + (a[k] * Math.cos(th) + b[k] * Math.sin(th)) * R));
+    }
+    return out;
+}
+
+/**
+ * The cone tangent to two spheres: apex at their external homothetic centre.
+ * Returns null when there isn't one — equal radii give a cylinder, and nested
+ * or overlapping spheres give no real tangent at all.
+ */
+export function tangentCone(c1, r1, c2, r2) {
+    if (Math.abs(r1 - r2) < 1e-6) return null;
+    const E = [0, 1, 2].map((k) => (r1 * c2[k] - r2 * c1[k]) / (r1 - r2));
+    const d1 = Math.hypot(...[0, 1, 2].map((k) => c1[k] - E[k]));
+    const d2 = Math.hypot(...[0, 1, 2].map((k) => c2[k] - E[k]));
+    if (d1 < Math.abs(r1) || d2 < Math.abs(r2)) return null;   // apex inside
+    return {
+        apex: E,
+        axis: norm([0, 1, 2].map((k) => c1[k] - E[k])),
+        halfAngle: Math.asin(Math.abs(r1) / d1),
+        length: Math.max(d1, d2) + Math.max(Math.abs(r1), Math.abs(r2)),
+    };
 }
 
 /* ---------------------------------------------------------------- 3D view */
@@ -185,6 +244,28 @@ export function makeScene3D(canvas) {
                 );
                 mesh.position.set(s.x, s.y, s.z);
                 group.add(mesh);
+            } else if (s.kind === "cone") {
+                const R = s.length * Math.tan(s.halfAngle);
+                const mesh = new THREE.Mesh(
+                    // radiusTop 0 puts the apex at +Y/2; map local -Y to the axis
+                    new THREE.CylinderGeometry(0, R, s.length, 56, 1, true),
+                    new THREE.MeshStandardMaterial({
+                        color: colour, transparent: true, opacity: s.opacity ?? 0.13,
+                        side: THREE.DoubleSide, depthWrite: false, roughness: 0.6,
+                    })
+                );
+                const u = new THREE.Vector3(...s.axis).normalize();
+                mesh.position.set(...s.apex).addScaledVector(u, s.length / 2);
+                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), u);
+                group.add(mesh);
+                const wire = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0, R, s.length, 24, 1, true),
+                    new THREE.MeshBasicMaterial({ color: colour, wireframe: true,
+                        transparent: true, opacity: s.wire ?? 0.2, depthWrite: false })
+                );
+                wire.position.copy(mesh.position);
+                wire.quaternion.copy(mesh.quaternion);
+                group.add(wire);
             } else if (s.kind === "plane") {
                 const L = halfWidth * 1.9;
                 const mesh = new THREE.Mesh(
