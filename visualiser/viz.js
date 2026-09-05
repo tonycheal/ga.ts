@@ -63,22 +63,38 @@ function arrowHead(ctx, px, py, dx, dy, size) {
     ctx.fill();
 }
 
-// Orientation marks. A circle of positive radius is drawn traversed
-// anticlockwise, negative clockwise — this is the whole point of the library,
-// so it gets drawn, not inferred.
+// Orientation marks, drawn RADIALLY — not along the curve.
+//
+// A tangential arrow says "traversed anticlockwise", which is a 2D-only idea:
+// a sphere has no direction of travel. A radial arrow is the normal, which
+// means the same thing in every dimension, reads as inside-versus-outside
+// rather than as a rotation, and is literally the ripple spreading or closing.
+// It also removes a special case: circles and lines both just show a normal,
+// exactly as the algebra treats them.
+function normalTick(ctx, T, wx, wy, dx, dy, colour, len = 11) {
+    const px = T.sx(wx), py = T.sy(wy);
+    const sx = dx, sy = -dy;                 // world -> screen (y flips)
+    ctx.save();
+    ctx.strokeStyle = colour;
+    ctx.fillStyle = colour;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(px + sx * len, py + sy * len);
+    ctx.stroke();
+    arrowHead(ctx, px + sx * len, py + sy * len, sx, sy, 5.5);
+    ctx.restore();
+}
+
 function circleArrows(ctx, T, x, y, r, colour) {
     const R = Math.abs(r) * T.scale;
-    if (R < 8) return;
-    const dir = Math.sign(r) || 1;
-    ctx.save();
-    ctx.fillStyle = colour;
-    for (const a of [Math.PI * 0.25, Math.PI * 1.25]) {
-        const px = T.sx(x + Math.abs(r) * Math.cos(a));
-        const py = T.sy(y + Math.abs(r) * Math.sin(a));
-        // screen-space tangent (note sy flips y)
-        arrowHead(ctx, px, py, -dir * -Math.sin(a), -dir * Math.cos(a), Math.min(9, 4 + R * 0.05));
+    if (R < 7) return;
+    const dir = Math.sign(r) || 1;           // +r points outward, -r inward
+    for (const a of [0.35, 1.9, 3.45, 5.0]) {
+        const ux = Math.cos(a), uy = Math.sin(a);
+        normalTick(ctx, T, x + Math.abs(r) * ux, y + Math.abs(r) * uy, dir * ux, dir * uy, colour);
     }
-    ctx.restore();
 }
 
 function drawShape(ctx, view, T, s) {
@@ -115,14 +131,10 @@ function drawShape(ctx, view, T, s) {
         ctx.stroke();
         ctx.setLineDash([]);
         if (s.arrows !== false) {
-            const px = T.sx(p0x), py = T.sy(p0y);
-            arrowHead(ctx, px, py, dx, -dy, 8);
-            // a short tick towards the normal side, so "which side" is visible
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(px, py);
-            ctx.lineTo(T.sx(p0x + s.nx * 0.5), T.sy(p0y + s.ny * 0.5));
-            ctx.stroke();
+            // same radial mark as a circle: the normal, nothing else
+            for (const k of [-1.6, 0, 1.6]) {
+                normalTick(ctx, T, p0x + dx * k, p0y + dy * k, s.nx, s.ny, stroke);
+            }
         }
     }
     ctx.restore();
