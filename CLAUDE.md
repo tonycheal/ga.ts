@@ -32,6 +32,7 @@ for the Lie sphere geometry finding that shapes the Apollonius work.
 | `LIESPHERE.md` | why Apollonius's `lcp` records are Lie sphere vectors |
 | `RIPPLES.html` | the same thing in plain English, open it in a browser |
 | `PUREGEOMETRY.md` | design doc for the expression language |
+| `visualiser/` | web app: watch oriented circles move — `npm run build` first |
 | `equation-editor/index.html` | standalone symbol-entry helper |
 | `ga2.ts` | scratchpad, `console.log` dumps — not a test |
 | `test.ts` | **dead code**, an API that no longer exists — ignore it |

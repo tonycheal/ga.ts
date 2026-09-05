@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ga.ts visualiser</title>
+<style>
+  :root {
+    --paper:  #F1F3EF;
+    --panel:  #FBFCFA;
+    --ink:    #16302B;
+    --muted:  #5F6F69;
+    --rule:   #D3DAD5;
+    --grid:   #E2E7E2;
+    --axis:   #C6CFC9;
+    --green:  #0E6E5B;
+    --hot:    #A8452F;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0F1512; --panel: #141B17; --ink: #E2E9E3; --muted: #8FA098;
+      --rule: #2A3630; --grid: #1D2622; --axis: #2F3D37; --green: #52C7A6; --hot: #E0785C;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 14px/1.5 "Karla", system-ui, -apple-system, sans-serif;
+    display: grid; grid-template-columns: 1fr 300px; height: 100vh;
+  }
+  @media (max-width: 780px) { body { grid-template-columns: 1fr; height: auto; } }
+
+  main { display: flex; flex-direction: column; padding: 16px; gap: 12px; min-width: 0; min-height: 0; }
+  #stage { flex: 1; position: relative; min-height: 260px; }
+  canvas { width: 100%; height: 100%; border: 1px solid var(--rule); border-radius: 4px; display: block; }
+
+  aside {
+    border-left: 1px solid var(--rule); padding: 18px 16px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 18px; background: var(--panel);
+  }
+  h1 { font-size: 15px; margin: 0; letter-spacing: -0.01em; }
+  h1 small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 3px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+
+  .progs { display: flex; flex-direction: column; gap: 4px; }
+  .progs button {
+    text-align: left; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px;
+    background: transparent; color: var(--ink); font: inherit; cursor: pointer; line-height: 1.3;
+  }
+  .progs button:hover { border-color: var(--green); }
+  .progs button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--panel); }
+  .progs button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+  .blurb { color: var(--muted); font-size: 13px; margin: 0; }
+
+  .transport { display: flex; gap: 6px; }
+  .transport button {
+    flex: 1; padding: 7px 0; border: 1px solid var(--rule); border-radius: 4px;
+    background: transparent; color: var(--ink); font: inherit; cursor: pointer;
+  }
+  .transport button:hover { border-color: var(--green); }
+  .transport button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  #play { font-weight: 700; }
+
+  label.row { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  input[type=range] { width: 100%; accent-color: var(--green); }
+  .val { font-family: ui-monospace, Menlo, monospace; color: var(--ink); }
+
+  #note {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; line-height: 1.7;
+    padding: 10px 12px; border: 1px solid var(--rule); border-radius: 4px;
+    min-height: 3.4em; word-break: break-word; background: var(--paper);
+  }
+  footer { font-size: 11px; color: var(--muted); margin-top: auto; }
+  footer code { font-size: 11px; }
+</style>
+</head>
+<body>
+
+<main>
+  <div id="stage"><canvas id="c"></canvas></div>
+  <div id="note">—</div>
+</main>
+
+<aside>
+  <h1>ga.ts visualiser<small>Lie sphere geometry, 2D</small></h1>
+
+  <div>
+    <h2>Programs</h2>
+    <div class="progs" id="progs"></div>
+  </div>
+
+  <p class="blurb" id="blurb"></p>
+
+  <div>
+    <h2>Transport</h2>
+    <div class="transport">
+      <button id="back" title="step back">‹</button>
+      <button id="play">Play</button>
+      <button id="fwd" title="step forward">›</button>
+    </div>
+  </div>
+
+  <div>
+    <label class="row">Speed <span class="val" id="speedVal">0.15</span> /s</label>
+    <input type="range" id="speed" min="0.01" max="1" step="0.01" value="0.15">
+  </div>
+
+  <div>
+    <label class="row">Position <span class="val" id="tVal">0.00</span></label>
+    <input type="range" id="scrub" min="0" max="1" step="0.001" value="0">
+  </div>
+
+  <div>
+    <label class="row">Zoom <span class="val" id="zoomVal">8</span></label>
+    <input type="range" id="zoom" min="2" max="20" step="0.5" value="8">
+  </div>
+
+  <footer>
+    Not shipped in the npm package. Solver is provisional — see
+    <code>visualiser/solver.js</code> and <code>ROADMAP.md</code>.
+  </footer>
+</aside>
+
+<script type="module">
+import { makeView, makePlayer } from "./viz.js";
+import { PROGRAMS } from "./programs.js";
+
+const canvas = document.getElementById("c");
+const view = makeView(canvas, 8);
+const noteEl = document.getElementById("note");
+const scrub = document.getElementById("scrub");
+const tVal = document.getElementById("tVal");
+
+const player = makePlayer({
+  view,
+  onFrame({ t, note }) {
+    noteEl.textContent = note || "—";
+    scrub.value = t;
+    tVal.textContent = t.toFixed(2);
+  },
+});
+
+// program buttons
+const progsEl = document.getElementById("progs");
+const blurbEl = document.getElementById("blurb");
+const buttons = PROGRAMS.map((p) => {
+  const b = document.createElement("button");
+  b.textContent = p.name;
+  b.setAttribute("aria-pressed", "false");
+  b.onclick = () => choose(p);
+  progsEl.appendChild(b);
+  return b;
+});
+
+function choose(p) {
+  player.load(p);
+  blurbEl.textContent = p.blurb;
+  buttons.forEach((b, i) => b.setAttribute("aria-pressed", String(PROGRAMS[i] === p)));
+  document.getElementById("zoom").value = view.halfWidth;
+  document.getElementById("zoomVal").textContent = view.halfWidth;
+}
+
+// transport
+const playBtn = document.getElementById("play");
+playBtn.onclick = () => { playBtn.textContent = player.toggle() ? "Pause" : "Play"; };
+document.getElementById("back").onclick = () => { player.step(-0.02); playBtn.textContent = "Play"; };
+document.getElementById("fwd").onclick  = () => { player.step(+0.02); playBtn.textContent = "Play"; };
+
+document.getElementById("speed").oninput = (e) => {
+  player.setSpeed(+e.target.value);
+  document.getElementById("speedVal").textContent = getSpeedLabel(+e.target.value);
+};
+const getSpeedLabel = (v) => v.toFixed(2);
+
+scrub.oninput = (e) => { player.pause(); playBtn.textContent = "Play"; player.setT(+e.target.value); };
+
+document.getElementById("zoom").oninput = (e) => {
+  view.halfWidth = +e.target.value;
+  document.getElementById("zoomVal").textContent = e.target.value;
+  player.redraw();
+};
+
+// keyboard: space to play, arrows to step
+addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); playBtn.click(); }
+  if (e.code === "ArrowLeft")  { e.preventDefault(); document.getElementById("back").click(); }
+  if (e.code === "ArrowRight") { e.preventDefault(); document.getElementById("fwd").click(); }
+});
+
+addEventListener("resize", () => player.redraw());
+choose(PROGRAMS[0]);
+</script>
+</body>
+</html>
