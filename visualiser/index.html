@@ -164,7 +164,7 @@ const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n
 const cube = makeViewCube(cubeCanvas, (dir) => { scene3.setDirection(dir); player.redraw(); },
                           { face: css("--cube"), text: css("--ink") });
 
-let is3D = false, mode = "solid", painting = false;
+let is3D = false, mode = "solid", painting = false, progIndex = 0;
 
 // Re-entrancy guard: painting the 3D view touches the camera, which can emit
 // an orbit "change" that asks for another paint. One level is enough.
@@ -208,6 +208,7 @@ const b3 = makeButtons(PROGRAMS_3D, $("progs3"), true);
 
 function choose(p, threeD) {
   is3D = threeD;
+  progIndex = (threeD ? PROGRAMS_3D : PROGRAMS).indexOf(p);
   view.halfWidth = p.halfWidth ?? 8;
   view.cx = p.cx ?? 0; view.cy = p.cy ?? 0;
   scene3.setHalfWidth(view.halfWidth);
@@ -227,9 +228,13 @@ function choose(p, threeD) {
   player.load(p);
 }
 
-/* ---- 2D / 3D tabs: show one list, not both stacked ---- */
-$("tab2").onclick = () => { if (is3D) choose(PROGRAMS[0], false); };
-$("tab3").onclick = () => { if (!is3D) choose(PROGRAMS_3D[0], true); };
+/* ---- 2D / 3D tabs: show one list, not both stacked ----
+   The two lists are deliberately parallel — demo n in one is the twin of
+   demo n in the other — so switching worlds keeps your place. 2D has one
+   extra at the end with no 3D twin, hence the clamp. */
+const twin = (list) => list[Math.min(progIndex, list.length - 1)];
+$("tab2").onclick = () => { if (is3D) choose(twin(PROGRAMS), false); };
+$("tab3").onclick = () => { if (!is3D) choose(twin(PROGRAMS_3D), true); };
 
 /* ---- solid vs projection ---- */
 function applyMode() {
