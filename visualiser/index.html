@@ -58,7 +58,7 @@
        margin: 0 0 8px; font-weight: 700; }
 
   .progs { display: flex; flex-direction: column; gap: 4px; }
-  .progs + h2 { margin-top: 14px; }
+  #dimtabs { margin-bottom: 8px; }
   button {
     border: 1px solid var(--rule); border-radius: 4px; background: transparent;
     color: var(--ink); font: inherit; cursor: pointer;
@@ -101,10 +101,13 @@
   <h1>ga.ts visualiser<small>Lie sphere geometry</small></h1>
 
   <div>
-    <h2>2D — R(3,2)</h2>
+    <h2>Programs</h2>
+    <div class="rowbtns" id="dimtabs">
+      <button id="tab2" aria-pressed="true">2D · R(3,2)</button>
+      <button id="tab3" aria-pressed="false">3D · R(4,2)</button>
+    </div>
     <div class="progs" id="progs2"></div>
-    <h2>3D — R(4,2)</h2>
-    <div class="progs" id="progs3"></div>
+    <div class="progs" id="progs3" hidden></div>
   </div>
 
   <p class="blurb" id="blurb"></p>
@@ -161,17 +164,24 @@ const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n
 const cube = makeViewCube(cubeCanvas, (dir) => { scene3.setDirection(dir); player.redraw(); },
                           { face: css("--cube"), text: css("--ink") });
 
-let is3D = false, mode = "solid", lastScene = null;
+let is3D = false, mode = "solid", painting = false;
 
+// Re-entrancy guard: painting the 3D view touches the camera, which can emit
+// an orbit "change" that asks for another paint. One level is enough.
 function paint(scene) {
-  lastScene = scene;
-  if (!is3D) { render(view, scene); return; }
-  if (mode === "solid") {
-    scene3.render(scene.shapes ?? []);
-  } else {
-    render(view, { shapes: project(scene.shapes ?? [], scene3.cameraDirection) });
+  if (painting) return;
+  painting = true;
+  try {
+    if (!is3D) { render(view, scene); return; }
+    if (mode === "solid") {
+      scene3.render(scene.shapes ?? []);
+    } else {
+      render(view, { shapes: project(scene.shapes ?? [], scene3.cameraDirection) });
+    }
+    cube.draw(scene3.cameraDirection);
+  } finally {
+    painting = false;
   }
-  cube.draw(scene3.cameraDirection);
 }
 
 const player = makePlayer({
@@ -206,12 +216,20 @@ function choose(p, threeD) {
   $("blurb").textContent = p.blurb;
   b2.forEach((b, i) => b.setAttribute("aria-pressed", String(!threeD && PROGRAMS[i] === p)));
   b3.forEach((b, i) => b.setAttribute("aria-pressed", String(threeD && PROGRAMS_3D[i] === p)));
+  $("tab2").setAttribute("aria-pressed", String(!threeD));
+  $("tab3").setAttribute("aria-pressed", String(threeD));
+  $("progs2").hidden = threeD;
+  $("progs3").hidden = !threeD;
   $("mSolid").disabled = !threeD;
   $("mProj").disabled = !threeD;
   $("viewbox").style.opacity = threeD ? 1 : 0.45;
   applyMode();
   player.load(p);
 }
+
+/* ---- 2D / 3D tabs: show one list, not both stacked ---- */
+$("tab2").onclick = () => { if (is3D) choose(PROGRAMS[0], false); };
+$("tab3").onclick = () => { if (!is3D) choose(PROGRAMS_3D[0], true); };
 
 /* ---- solid vs projection ---- */
 function applyMode() {

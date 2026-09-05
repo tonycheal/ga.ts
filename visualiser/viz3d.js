@@ -89,7 +89,11 @@ export function makeScene3D(canvas) {
     scene.add(group);
 
     const controls = new OrbitControls(camera, canvas);
-    controls.enableDamping = true;
+    // Damping must stay OFF. controls.update() emits "change", and the page
+    // repaints on "change" — with damping on, update() nudges the camera every
+    // call, so change -> repaint -> update -> change recurses until the stack
+    // blows. Without it, update() is quiet unless the user actually moved.
+    controls.enableDamping = false;
     controls.enablePan = false;
 
     let halfWidth = 8;
