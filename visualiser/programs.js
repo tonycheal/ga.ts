@@ -6,7 +6,7 @@
 
 import { GA } from "../dist/ga.js";
 import { LIE2D, cycle, point, line, inner, decode, normalise } from "../dist/lie2d.js";
-import { solve, atAngle, PATTERNS, patternName, applyPattern } from "./solver.js";
+import { S2, solve, atAngle, PATTERNS, patternName, applyPattern } from "./solver.js";
 import { shape } from "./viz.js";
 
 const INPUT = "#6E8079";
