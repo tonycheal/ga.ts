@@ -14,8 +14,9 @@ Working and tested:
 | Operations: `gp`, `wedge`, `antiWedge`, `meet`, `reverse`, `grade`, `leftContract`, `dual`, `norm`, `normalize`, `sandwich`, `inverse` | `ga.ts` | done |
 | CGA 2D — points, lines, circles, meets, reflections | `test-cga2d.ts` | 102 assertions, all pass |
 | Lie sphere 2D — oriented cycles | `lie2d.ts`, `test-lie2d.ts` | 66 assertions, all pass |
+| Lie sphere 3D — oriented spheres | `lie3d.ts`, `test-lie3d.ts` | 71 assertions, all pass |
 | Expression interpreter (`e1 ∧ e2 ∨ e3` etc.) | `interpreter.ts`, `test-interpreter.ts` | 49 assertions, all pass |
-| 2D visualiser — watch oriented cycles move | `visualiser/` | 7 programs; `npm run build` first, not in the package |
+| Visualiser, 2D and 3D | `visualiser/` | 13 programs, solid or projection, viewcube; not in the package |
 | Symbol-entry helper app | `equation-editor/index.html` | standalone, works |
 
 The four bugs listed in the old `CLAUDE.md` (subscript ordering, dual bitmap
@@ -304,13 +305,18 @@ because the data structures already match:
   "Circle tangent to these three" and "circle meeting these three at 30°"
   become the same call.
 
-### 4. 3D
+### 4. 3D  *(the claim is proved; the solver is not)*
 
-Once 2D is settled, `R(3,2)` → `R(4,2)`: add one Euclidean basis vector, keep
-everything else. `lie3d.ts` should be `lie2d.ts` with `e3` inserted; if it
-isn't, something in the 2D design was too special-cased. This is the argument
-for doing Apollonius in GA at all, so it is worth proving early with a small
-spike (spheres tangent to four spheres) even before the 2D work is finished.
+Done, and it cost what it was supposed to. `lie3d.ts` is `lie2d.ts` with `e3`
+inserted — one extra row and column in the transform matrix — and
+`test-lie3d.ts` is a line-by-line mirror that passed 71/71 first run. No
+special case appeared. The visualiser's solver needed one change to go
+dimension-generic: `basis` became a parameter.
+
+Spheres tangent to four spheres works and gives **16** distinct answers from
+2⁴ sign patterns, as the dimension arithmetic predicted. What does *not* exist
+yet is `lsg.ts` itself — the 3D path currently runs through
+`visualiser/solver.js`, the stopgap.
 
 The parallel CGA line (`R(4,1)`) should get the same treatment — the existing
 `test-cga2d.ts` setup should generalise to `test-cga3d.ts` with one extra

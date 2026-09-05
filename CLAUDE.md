@@ -25,14 +25,16 @@ for the Lie sphere geometry finding that shapes the Apollonius work.
 |---|---|
 | `ga.ts` | the library — `Algebra`, `GA`, `MatrixMath` (~830 lines) |
 | `lie2d.ts` | Lie sphere geometry `R(3,2)`: oriented cycles in the plane |
+| `lie3d.ts` | the same file with `e3` inserted — `R(4,2)`, oriented spheres |
 | `interpreter.ts` | expression language — `e1 ∧ e2 ∨ e3` evaluated against an `Algebra` |
 | `test-cga2d.ts` | CGA 2D tests, 102 assertions |
 | `test-lie2d.ts` | Lie sphere tests, 66 assertions |
+| `test-lie3d.ts` | a line-by-line mirror of the 2D tests, 71 assertions |
 | `test-interpreter.ts` | interpreter tests, 49 assertions |
 | `LIESPHERE.md` | why Apollonius's `lcp` records are Lie sphere vectors |
 | `RIPPLES.html` | the same thing in plain English, open it in a browser |
 | `PUREGEOMETRY.md` | design doc for the expression language |
-| `visualiser/` | web app: watch oriented circles move — `npm run build` first |
+| `visualiser/` | web app: 2D and 3D, solid or projection — `npm install && npm run build` first |
 | `equation-editor/index.html` | standalone symbol-entry helper |
 | `ga2.ts` | scratchpad, `console.log` dumps — not a test |
 | `test.ts` | **dead code**, an API that no longer exists — ignore it |
@@ -42,12 +44,12 @@ for the Lie sphere geometry finding that shapes the Apollonius work.
 TypeScript, no build system. `bun` is installed and is the easiest runner:
 
 ```bash
-bun run test-cga2d.ts && bun run test-lie2d.ts && bun run test-interpreter.ts
+bun run test-cga2d.ts && bun run test-lie2d.ts && \
+  bun run test-lie3d.ts && bun run test-interpreter.ts
 ```
 
-There is a `tsconfig.json` but **no `package.json`**, so `npx tsc --noEmit`
-fails with a misleading "this is not the tsc command" error. Adding one is on
-the roadmap.
+or `npm test`. There is now a `package.json`, so `npx tsc -p tsconfig.json`
+type-checks the whole thing.
 
 ## The architecture in one page
 
@@ -99,6 +101,11 @@ A point at Euclidean `(x, y)` is `x·e₁ + y·e₂ + ½(x²+y²)·e∞ + e₀`.
 Every cycle is a null vector; `X · Y = 0` means oriented contact. This is the
 algebra Apollonius actually wants, because its `lcp` records already are Lie
 vectors and its flip flags already are the sign of `e_r`. See `LIESPHERE.md`.
+
+**Lie sphere 3D — `R(4,2)`, 64 basis elements.** `lie3d.ts` is `lie2d.ts` with
+`e3` inserted and nothing else changed, and `test-lie3d.ts` is a line-by-line
+mirror of `test-lie2d.ts`. Keeping them side by side is the check: if 3D ever
+needs a special case 2D does not have, the design was too flat.
 
 General pattern: CGA of Rⁿ is `R(n+1, 1)`; Lie of Rⁿ is `R(n+1, 2)`. Going to
 3D adds one Euclidean basis vector and changes nothing else.

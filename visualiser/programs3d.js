@@ -44,15 +44,15 @@ const sixteen = {
     name: "The sixteen tangent spheres",
     blurb: "Four spheres, four sign choices, sixteen answers. The 2D count was 8 = 2³; this is 2⁴.",
     steps: 16,
-    halfWidth: 7,
+    halfWidth: 5.5,
     frame(t) {
         const pat = patterns(4)[Math.round(t * 15)];
         const ins = applyPattern(TETRA, pat, reverse);
         const sols = solve(ins.map((c) => atAngle(c, 0)));
         return {
             shapes: [
-                ...ins.map((c) => shape(c, { stroke: INPUT, opacity: 0.16 })),
-                ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, opacity: 0.22 })),
+                ...ins.map((c) => shape(c, { stroke: INPUT, opacity: 0.3, wire: 0.3 })),
+                ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, opacity: 0.3, wire: 0.22 })),
             ],
             note: `pattern ${patternName(pat)}   ·   r = ${radiiOf(sols).map((r) => fixed(r)).join(", ") || "no real solution"}`,
         };

@@ -176,14 +176,17 @@ export function render(view, scene) {
 
 /* ---------------------------------------------------------------- player */
 
-export function makePlayer({ view, onFrame }) {
+// `paint(scene, program)` decides how a scene reaches the screen — the 2D
+// canvas, the three.js view, or the 2D canvas fed by a projection. The player
+// itself does not care, which is what lets one transport drive all three.
+export function makePlayer({ paint, onFrame }) {
     let program = null, t = 0, playing = false, speed = 0.15, last = 0, dir = 1;
 
     function draw() {
         if (!program) return;
         const tt = program.steps ? Math.round(t * (program.steps - 1)) / (program.steps - 1) : t;
         const scene = program.frame(tt);
-        render(view, scene);
+        paint(scene, program);
         onFrame({ t: tt, note: scene.note ?? "", program });
     }
 
@@ -203,8 +206,6 @@ export function makePlayer({ view, onFrame }) {
     return {
         load(p) {
             program = p; t = 0; dir = 1;
-            if (p.halfWidth) view.halfWidth = p.halfWidth;
-            view.cx = p.cx ?? 0; view.cy = p.cy ?? 0;
             draw();
         },
         play() { playing = true; },

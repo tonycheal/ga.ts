@@ -142,16 +142,29 @@ export function makeScene3D(canvas) {
             const colour = new THREE.Color(s.stroke ?? "#2E9B80");
             if (s.kind === "sphere") {
                 const R = Math.abs(s.r);
+                // Nested translucent spheres go muddy fast, so big ones are
+                // fainter and every one gets a faint globe wireframe — that is
+                // what makes the extent of each readable when they overlap.
+                const op = (s.opacity ?? 0.2) * Math.min(1, 1.6 / Math.max(R, 0.8));
                 const mesh = new THREE.Mesh(
                     new THREE.SphereGeometry(R, 40, 28),
                     new THREE.MeshStandardMaterial({
-                        color: colour, transparent: true, opacity: s.opacity ?? 0.2,
+                        color: colour, transparent: true, opacity: op,
                         side: THREE.DoubleSide, depthWrite: false,
                         roughness: 0.45, metalness: 0.0,
                     })
                 );
                 mesh.position.set(s.x, s.y, s.z);
                 group.add(mesh);
+                const wire = new THREE.Mesh(
+                    new THREE.SphereGeometry(R, 16, 10),
+                    new THREE.MeshBasicMaterial({
+                        color: colour, wireframe: true, transparent: true,
+                        opacity: s.wire ?? 0.16, depthWrite: false,
+                    })
+                );
+                wire.position.set(s.x, s.y, s.z);
+                group.add(wire);
                 if (s.arrows !== false) {
                     const sign = Math.sign(s.r) || 1;
                     const g = new THREE.Group();

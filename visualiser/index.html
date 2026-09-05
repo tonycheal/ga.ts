@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ga.ts visualiser</title>
+<script type="importmap">
+{ "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+}}
+</script>
 <style>
   :root {
     --paper:  #F1F3EF;
@@ -15,11 +21,13 @@
     --axis:   #C6CFC9;
     --green:  #0E6E5B;
     --hot:    #A8452F;
+    --cube:   #E7EBE7;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --paper: #0F1512; --panel: #141B17; --ink: #E2E9E3; --muted: #8FA098;
       --rule: #2A3630; --grid: #1D2622; --axis: #2F3D37; --green: #52C7A6; --hot: #E0785C;
+      --cube: #263029;
     }
   }
   * { box-sizing: border-box; }
@@ -32,34 +40,38 @@
 
   main { display: flex; flex-direction: column; padding: 16px; gap: 12px; min-width: 0; min-height: 0; }
   #stage { flex: 1; position: relative; min-height: 260px; }
-  canvas { width: 100%; height: 100%; border: 1px solid var(--rule); border-radius: 4px; display: block; }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%;
+                  border: 1px solid var(--rule); border-radius: 4px; display: block; }
+  /* more specific than "#stage canvas", or the cube gets stretched to fill */
+  #stage canvas#cube { inset: 10px 10px auto auto; width: 86px; height: 86px;
+                       border: none; cursor: pointer; z-index: 2; background: transparent; }
+  [hidden] { display: none !important; }
 
   aside {
     border-left: 1px solid var(--rule); padding: 18px 16px; overflow-y: auto;
-    display: flex; flex-direction: column; gap: 18px; background: var(--panel);
+    display: flex; flex-direction: column; gap: 16px; background: var(--panel);
   }
   h1 { font-size: 15px; margin: 0; letter-spacing: -0.01em; }
-  h1 small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; margin-top: 3px; }
-  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 8px; font-weight: 700; }
+  h1 small { display: block; font-weight: 400; color: var(--muted); font-size: 12px;
+             letter-spacing: 0.04em; text-transform: uppercase; margin-top: 3px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+       margin: 0 0 8px; font-weight: 700; }
 
   .progs { display: flex; flex-direction: column; gap: 4px; }
-  .progs button {
-    text-align: left; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 4px;
-    background: transparent; color: var(--ink); font: inherit; cursor: pointer; line-height: 1.3;
+  .progs + h2 { margin-top: 14px; }
+  button {
+    border: 1px solid var(--rule); border-radius: 4px; background: transparent;
+    color: var(--ink); font: inherit; cursor: pointer;
   }
-  .progs button:hover { border-color: var(--green); }
-  .progs button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--panel); }
-  .progs button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  button:hover:not(:disabled) { border-color: var(--green); }
+  button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button[aria-pressed="true"] { background: var(--green); border-color: var(--green); color: var(--panel); }
+  .progs button { text-align: left; padding: 8px 10px; line-height: 1.3; }
 
   .blurb { color: var(--muted); font-size: 13px; margin: 0; }
-
-  .transport { display: flex; gap: 6px; }
-  .transport button {
-    flex: 1; padding: 7px 0; border: 1px solid var(--rule); border-radius: 4px;
-    background: transparent; color: var(--ink); font: inherit; cursor: pointer;
-  }
-  .transport button:hover { border-color: var(--green); }
-  .transport button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+  .rowbtns { display: flex; gap: 6px; }
+  .rowbtns button { flex: 1; padding: 7px 0; }
   #play { font-weight: 700; }
 
   label.row { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
@@ -72,29 +84,42 @@
     min-height: 3.4em; word-break: break-word; background: var(--paper);
   }
   footer { font-size: 11px; color: var(--muted); margin-top: auto; }
-  footer code { font-size: 11px; }
 </style>
 </head>
 <body>
 
 <main>
-  <div id="stage"><canvas id="c"></canvas></div>
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <canvas id="c3" hidden></canvas>
+    <canvas id="cube" hidden title="click a face, edge or corner"></canvas>
+  </div>
   <div id="note">—</div>
 </main>
 
 <aside>
-  <h1>ga.ts visualiser<small>Lie sphere geometry, 2D</small></h1>
+  <h1>ga.ts visualiser<small>Lie sphere geometry</small></h1>
 
   <div>
-    <h2>Programs</h2>
-    <div class="progs" id="progs"></div>
+    <h2>2D — R(3,2)</h2>
+    <div class="progs" id="progs2"></div>
+    <h2>3D — R(4,2)</h2>
+    <div class="progs" id="progs3"></div>
   </div>
 
   <p class="blurb" id="blurb"></p>
 
+  <div id="viewbox">
+    <h2>View</h2>
+    <div class="rowbtns">
+      <button id="mSolid" aria-pressed="true">Solid</button>
+      <button id="mProj" aria-pressed="false">Projection</button>
+    </div>
+  </div>
+
   <div>
     <h2>Transport</h2>
-    <div class="transport">
+    <div class="rowbtns">
       <button id="back" title="step back">‹</button>
       <button id="play">Play</button>
       <button id="fwd" title="step forward">›</button>
@@ -123,74 +148,106 @@
 </aside>
 
 <script type="module">
-import { makeView, makePlayer } from "./viz.js";
+import { makeView, makePlayer, render } from "./viz.js";
+import { makeScene3D, makeViewCube, project, AXES } from "./viz3d.js";
 import { PROGRAMS } from "./programs.js";
+import { PROGRAMS_3D } from "./programs3d.js";
 
-const canvas = document.getElementById("c");
-const view = makeView(canvas, 8);
-const noteEl = document.getElementById("note");
-const scrub = document.getElementById("scrub");
-const tVal = document.getElementById("tVal");
+const $ = (id) => document.getElementById(id);
+const c2 = $("c"), c3 = $("c3"), cubeCanvas = $("cube");
+const view = makeView(c2, 8);
+const scene3 = makeScene3D(c3);
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const cube = makeViewCube(cubeCanvas, (dir) => { scene3.setDirection(dir); player.redraw(); },
+                          { face: css("--cube"), text: css("--ink") });
 
-const player = makePlayer({
-  view,
-  onFrame({ t, note }) {
-    noteEl.textContent = note || "—";
-    scrub.value = t;
-    tVal.textContent = t.toFixed(2);
-  },
-});
+let is3D = false, mode = "solid", lastScene = null;
 
-// program buttons
-const progsEl = document.getElementById("progs");
-const blurbEl = document.getElementById("blurb");
-const buttons = PROGRAMS.map((p) => {
-  const b = document.createElement("button");
-  b.textContent = p.name;
-  b.setAttribute("aria-pressed", "false");
-  b.onclick = () => choose(p);
-  progsEl.appendChild(b);
-  return b;
-});
-
-function choose(p) {
-  player.load(p);
-  blurbEl.textContent = p.blurb;
-  buttons.forEach((b, i) => b.setAttribute("aria-pressed", String(PROGRAMS[i] === p)));
-  document.getElementById("zoom").value = view.halfWidth;
-  document.getElementById("zoomVal").textContent = view.halfWidth;
+function paint(scene) {
+  lastScene = scene;
+  if (!is3D) { render(view, scene); return; }
+  if (mode === "solid") {
+    scene3.render(scene.shapes ?? []);
+  } else {
+    render(view, { shapes: project(scene.shapes ?? [], scene3.cameraDirection) });
+  }
+  cube.draw(scene3.cameraDirection);
 }
 
-// transport
-const playBtn = document.getElementById("play");
+const player = makePlayer({
+  paint,
+  onFrame({ t, note }) { $("note").textContent = note || "—"; $("scrub").value = t; $("tVal").textContent = t.toFixed(2); },
+});
+
+// orbiting should repaint, and keep the cube in step
+scene3.controls.addEventListener("change", () => { if (is3D) player.redraw(); });
+
+/* ---- program buttons ---- */
+function makeButtons(list, host, threeD) {
+  return list.map((p) => {
+    const b = document.createElement("button");
+    b.textContent = p.name;
+    b.setAttribute("aria-pressed", "false");
+    b.onclick = () => choose(p, threeD);
+    host.appendChild(b);
+    return b;
+  });
+}
+const b2 = makeButtons(PROGRAMS, $("progs2"), false);
+const b3 = makeButtons(PROGRAMS_3D, $("progs3"), true);
+
+function choose(p, threeD) {
+  is3D = threeD;
+  view.halfWidth = p.halfWidth ?? 8;
+  view.cx = p.cx ?? 0; view.cy = p.cy ?? 0;
+  scene3.setHalfWidth(view.halfWidth);
+  $("zoom").value = view.halfWidth;
+  $("zoomVal").textContent = view.halfWidth;
+  $("blurb").textContent = p.blurb;
+  b2.forEach((b, i) => b.setAttribute("aria-pressed", String(!threeD && PROGRAMS[i] === p)));
+  b3.forEach((b, i) => b.setAttribute("aria-pressed", String(threeD && PROGRAMS_3D[i] === p)));
+  $("mSolid").disabled = !threeD;
+  $("mProj").disabled = !threeD;
+  $("viewbox").style.opacity = threeD ? 1 : 0.45;
+  applyMode();
+  player.load(p);
+}
+
+/* ---- solid vs projection ---- */
+function applyMode() {
+  const solid = is3D && mode === "solid";
+  c3.hidden = !solid;
+  c2.hidden = solid;
+  cubeCanvas.hidden = !is3D;
+  $("mSolid").setAttribute("aria-pressed", String(mode === "solid"));
+  $("mProj").setAttribute("aria-pressed", String(mode === "projection"));
+}
+$("mSolid").onclick = () => { mode = "solid"; applyMode(); player.redraw(); };
+$("mProj").onclick  = () => { mode = "projection"; applyMode(); player.redraw(); };
+
+/* ---- transport ---- */
+const playBtn = $("play");
 playBtn.onclick = () => { playBtn.textContent = player.toggle() ? "Pause" : "Play"; };
-document.getElementById("back").onclick = () => { player.step(-0.02); playBtn.textContent = "Play"; };
-document.getElementById("fwd").onclick  = () => { player.step(+0.02); playBtn.textContent = "Play"; };
-
-document.getElementById("speed").oninput = (e) => {
-  player.setSpeed(+e.target.value);
-  document.getElementById("speedVal").textContent = getSpeedLabel(+e.target.value);
-};
-const getSpeedLabel = (v) => v.toFixed(2);
-
-scrub.oninput = (e) => { player.pause(); playBtn.textContent = "Play"; player.setT(+e.target.value); };
-
-document.getElementById("zoom").oninput = (e) => {
+$("back").onclick = () => { player.step(-0.02); playBtn.textContent = "Play"; };
+$("fwd").onclick  = () => { player.step(+0.02); playBtn.textContent = "Play"; };
+$("speed").oninput = (e) => { player.setSpeed(+e.target.value); $("speedVal").textContent = (+e.target.value).toFixed(2); };
+$("scrub").oninput = (e) => { player.pause(); playBtn.textContent = "Play"; player.setT(+e.target.value); };
+$("zoom").oninput = (e) => {
   view.halfWidth = +e.target.value;
-  document.getElementById("zoomVal").textContent = e.target.value;
+  scene3.setHalfWidth(view.halfWidth);
+  $("zoomVal").textContent = e.target.value;
   player.redraw();
 };
 
-// keyboard: space to play, arrows to step
 addEventListener("keydown", (e) => {
   if (e.target.tagName === "INPUT") return;
   if (e.code === "Space") { e.preventDefault(); playBtn.click(); }
-  if (e.code === "ArrowLeft")  { e.preventDefault(); document.getElementById("back").click(); }
-  if (e.code === "ArrowRight") { e.preventDefault(); document.getElementById("fwd").click(); }
+  if (e.code === "ArrowLeft")  { e.preventDefault(); $("back").click(); }
+  if (e.code === "ArrowRight") { e.preventDefault(); $("fwd").click(); }
 });
-
 addEventListener("resize", () => player.redraw());
-choose(PROGRAMS[0]);
+
+choose(PROGRAMS[0], false);
 </script>
 </body>
 </html>
