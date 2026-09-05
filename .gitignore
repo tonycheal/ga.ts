@@ -28,6 +28,9 @@ target/
 # JetBrains IDE
 .idea/
 
+# Claude Code: per-developer settings (launch.json IS shared)
+.claude/settings.local.json
+
 # Unit test reports
 TEST*.xml
 
