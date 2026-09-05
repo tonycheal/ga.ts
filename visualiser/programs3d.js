@@ -70,7 +70,7 @@ const drag = {
     halfWidth: 8,
     frame(t) {
         const z = lerp(-5.5, 5.5, t);
-        const ins = [TETRA[0], TETRA[1], TETRA[2], cycle(-1.6, -1.6, z, 1)];
+        const ins = [TETRA[0], TETRA[1], TETRA[2], cycle(-0.6, -0.6, z, 1)];
         const sols = solve(ins.map((c) => atAngle(c, 0)));
         return {
             shapes: [

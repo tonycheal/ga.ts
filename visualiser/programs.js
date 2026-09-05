@@ -6,7 +6,7 @@
 
 import { GA } from "../dist/ga.js";
 import { LIE2D, cycle, point, line, inner, decode, normalise } from "../dist/lie2d.js";
-import { solve, atAngle, reverse, PATTERNS, patternName, applyPattern } from "./solver.js";
+import { solve, atAngle, PATTERNS, patternName, applyPattern } from "./solver.js";
 import { shape } from "./viz.js";
 
 const INPUT = "#6E8079";
@@ -59,8 +59,8 @@ const drag = {
     halfWidth: 8,
     cx: 2, cy: 1,
     frame(t) {
-        const x = lerp(-2.5, 6.5, t);
-        const ins = [cycle(0, 0, 1), cycle(4, 0, 1), cycle(x, 2.2, 1)];
+        const y = lerp(-2.5, 6.5, t);
+        const ins = [cycle(0, 0, 1), cycle(4, 0, 1), cycle(2.2, y, 1)];
         const sols = solve(ins.map((c) => atAngle(c, 0)));
         const rs = sols.map((s) => decode(normalise(s))).filter((d) => d.kind === "circle");
         return {
@@ -68,7 +68,7 @@ const drag = {
                 ...ins.map((c, k) => shape(c, { stroke: k === 2 ? HOT : INPUT, width: 2 })),
                 ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, width: 2.5, centre: false })),
             ],
-            note: `moving circle at x = ${fixed(x, 2)}   ·   r = ${rs.map((d) => fixed(d.r)).join(", ")}`,
+            note: `moving circle at y = ${fixed(y, 2)}   ·   r = ${rs.map((d) => fixed(d.r)).join(", ")}`,
         };
     },
 };
