@@ -1,7 +1,8 @@
 # ROADMAP.md — ga.ts
 
-*Last reviewed 2026-09-02, after a long gap. Status of everything below is
-current as of that date; see "Where we are" for what actually exists.*
+*Last reviewed 2026-09-05. Status of everything below is current as of that
+date; see "Where we are" for what exists and "Open threads" at the end for
+what is mid-flight.*
 
 ## Where we are
 
@@ -363,9 +364,38 @@ cleaner thing for Apollonius to consume than a relative path across `~/Dev`.
 - **`ga2.ts` is a scratchpad**, not a test — its output is `console.log` dumps
   no one reads. Either turn its basis-change checks into assertions and fold
   them into a test file, or delete it.
-- **Add `package.json`** even before publishing, so `bun test` / `tsc` /
-  `npx tsc --noEmit` work without ceremony. There is a `tsconfig.json` but no
-  `package.json`, so `npx tsc` currently fails with a confusing error.
 - **The Unicode refactor** (`e₁`, `e∞`, …) described in `CLAUDE.md` is still a
   good idea and still explicitly a *late* step. Do it after the API is stable
   and before publishing, never in the same commit as a behaviour change.
+
+## Open threads, as of 2026-09-05
+
+Picked up mid-flight, so here is the state that is not obvious from the code.
+
+**The root-ordering swap in the visualiser.** In "Drag a circle through a
+pair", the two solutions change colour as the moving circle crosses `y = 0`.
+Diagnosed, not fixed. The solver's ordering is stable — `root[0]` is always
+the negative-radius one — but *continuing a branch through the line case flips
+the sign of its radius*, so any ordering keyed on radius must swap branches
+exactly there. Sorting on a program-local reference direction would make the
+colours stable for that one demo; the general fix needs `frame(t)` to stop
+being memoryless so a solution can be matched to the previous frame's. Tony
+knows, and rates it "not a big issue in practice". Do not silently change the
+pure-function-of-`t` design to fix a colour.
+
+There is also genuine **monodromy** here: over a loop of configurations the two
+solutions can come back exchanged, so no global label ("upper", "inner")
+exists. Only continuity, or the cursor at creation.
+
+**Tony has a tweak list coming** for the visualiser. He reads and edits the
+code himself and commits straight to `main` — check `git log` before assuming
+the working tree is yours.
+
+**Verifying browser code**: import the modules in `bun` and call
+`program.frame(t)` directly. Going through the browser once gave a confident
+false pass because it served cached ES modules, and a broken import shipped as
+a result. `viz.js` touches `document` only inside function bodies, so the
+program modules load headlessly.
+
+**Still not started**: `lsg.ts` itself. Everything 3D currently runs through
+`visualiser/solver.js`, which is the stopgap and is marked for deletion.
