@@ -33,22 +33,28 @@
     "./interpreter": {
       "types": "./dist/interpreter.d.ts",
       "import": "./dist/interpreter.js"
+    },
+    "./lie3d": {
+      "types": "./dist/lie3d.d.ts",
+      "import": "./dist/lie3d.js"
     }
   },
   "files": [
     "dist",
     "ga.ts",
     "lie2d.ts",
+    "lie3d.ts",
     "interpreter.ts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "prepare": "tsc -p tsconfig.build.json",
     "type-check": "tsc -p tsconfig.json",
-    "test": "bun run test-cga2d.ts && bun run test-lie2d.ts && bun run test-interpreter.ts"
+    "test": "bun run test-cga2d.ts && bun run test-lie2d.ts && bun run test-lie3d.ts && bun run test-interpreter.ts"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
+    "three": "^0.185.1",
     "typescript": "~5.9.2"
   }
 }
