@@ -17,7 +17,7 @@ Working and tested:
 | Lie sphere 2D — oriented cycles | `lie2d.ts`, `test-lie2d.ts` | 66 assertions, all pass |
 | Lie sphere 3D — oriented spheres | `lie3d.ts`, `test-lie3d.ts` | 71 assertions, all pass |
 | Expression interpreter (`e1 ∧ e2 ∨ e3` etc.) | `interpreter.ts`, `test-interpreter.ts` | 49 assertions, all pass |
-| Visualiser, 2D and 3D | `visualiser/` | 15 programs, solid or projection, viewcube; not in the package |
+| Visualiser, 2D and 3D | `visualiser/` | 17 programs, solid or projection, viewcube; not in the package |
 | Symbol-entry helper app | `equation-editor/index.html` | standalone, works |
 
 The four bugs listed in the old `CLAUDE.md` (subscript ordering, dual bitmap
@@ -392,7 +392,13 @@ special case appeared. The visualiser's solver needed one change to go
 dimension-generic: `basis` became a parameter.
 
 Spheres tangent to four spheres works and gives **16** distinct answers from
-2⁴ sign patterns, as the dimension arithmetic predicted. What does *not* exist
+2⁴ sign patterns, as the dimension arithmetic predicted. The two 2026-09-06
+programs came across the same way: "a line tangent to two circles" becomes "a
+plane tangent to three spheres" (the `flat()` constraint replaces the fourth
+sphere rather than the third circle) and "the rounded corner" becomes three
+planes and a radius, one sphere per octant, degenerating at the point at
+infinity exactly as the 2D one does. The two program lists are index-parallel
+again, which is what the 2D/3D tab relies on. What does *not* exist
 yet is `lsg.ts` itself — the 3D path currently runs through
 `visualiser/solver.js`, the stopgap.
 

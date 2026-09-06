@@ -10,7 +10,7 @@ import { LIE3D, cycle, point, plane, inner, decode, normalise } from "../dist/li
 import { S3, patterns, patternName, applyPattern } from "./solver.js";
 import { tangentCone } from "./viz3d.js";
 
-const { solve, atAngle, reverse, offset } = S3;
+const { solve, atAngle, reverse, offset, flat, withRadius } = S3;
 
 const INPUT = "#6E8079";
 const SOL_A = "#2E9B80";
@@ -111,7 +111,80 @@ const angles = {
     },
 };
 
-/* ------------------------------------------------------ 4. the Laguerre shear */
+/* --------------------------------- 4. a plane tangent to three spheres */
+
+// The twin of "a line tangent to two circles". The dimension count does the
+// same thing it always does: 2D wanted three constraints and spent two on
+// circles, 3D wants four and spends three on spheres. "Be flat" is the same
+// constraint vector in both — orthogonality to the point at infinity — and it
+// goes into the same list, so the solver still never learns that this is a
+// different kind of question.
+const tangentPlane = {
+    id: "tangentplane3",
+    name: "A plane tangent to three spheres",
+    blurb: "Three spheres and 'be flat'. In 2D the third constraint replaced a circle; here it replaces the fourth sphere.",
+    steps: 8,
+    halfWidth: 6.5,
+    frame(t) {
+        const base = [
+            cycle(-2.4, 0, 0, 1.6),
+            cycle( 2.2, 0.6, 0, 1.0),
+            cycle( 0.2, 2.8, 1.2, 0.7),
+        ];
+        const pat = patterns(3)[Math.round(t * 7)];
+        const ins = applyPattern(base, pat, reverse);
+        const sols = solve([...ins.map((c) => atAngle(c, 0)), flat()]);
+        return {
+            shapes: [
+                ...ins.map((c) => shape(c, { stroke: INPUT, opacity: 0.16 })),
+                ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, opacity: 0.22 })),
+            ],
+            note: `pattern ${patternName(pat)}   ·   ${describeAll(sols)}`,
+        };
+    },
+};
+
+/* ------------------------------------------------ 5. the rounded corner */
+
+// The twin of the 2D fillet, and it degenerates in exactly the same way: the
+// pencil meets the quadric at the answer and at the point at infinity, so
+// there is one sphere per octant and nothing for a "which root" flag to
+// choose. Three planes instead of two lines, eight corners instead of four.
+const corner = {
+    id: "corner3",
+    name: "The rounded corner",
+    blurb: "Radius given, tangent to three planes. One sphere per octant — the corner of a box, rounded. The second root is the point at infinity, here as in 2D.",
+    pingpong: true,
+    halfWidth: 6,
+    frame(t) {
+        const tilt = lerp(0, 35, t) * Math.PI / 180;
+        const P = [
+            plane(0, 0, 1, 0),
+            plane(0, 1, 0, 0),
+            plane(Math.cos(tilt), 0, -Math.sin(tilt), 0),
+        ];
+        const r = 1.3;
+        const shapes = P.map((q) => shape(q, { stroke: INPUT, opacity: 0.1 }));
+        let found = 0;
+        for (const pat of patterns(3)) {
+            const sols = solve([
+                ...applyPattern(P, pat, reverse).map((q) => atAngle(q, 0)),
+                withRadius(r),
+            ]);
+            found += sols.length;
+            for (const s of sols) {
+                shapes.push(shape(s, { stroke: pat[0] > 0 ? SOL_A : SOL_B, opacity: 0.2 }));
+            }
+        }
+        return {
+            shapes,
+            note: `third plane tilted ${(tilt * 180 / Math.PI).toFixed(0)}°   ·   radius ${fixed(r, 2)}   ·   ` +
+                  `eight patterns, ${found} sphere${found === 1 ? "" : "s"} — one per octant`,
+        };
+    },
+};
+
+/* --------------------------------------------------------- 6. the Laguerre shear */
 
 // offset comes from S3 — the SAME function the 2D programs use.
 
@@ -145,7 +218,7 @@ const laguerre = {
     },
 };
 
-/* --------------------------------------------------------------- 5. inversion */
+/* --------------------------------------------------------------- 7. inversion */
 
 function mirrorIn(X, S) {
     const V = new GA(LIE3D, { ...S.vector, er: 0 });
@@ -182,7 +255,7 @@ const inversion = {
     },
 };
 
-/* --------------------------------------------------------------- 6. quadrance */
+/* --------------------------------------------------------------- 8. quadrance */
 
 const quadrance = {
     id: "quadrance3",
@@ -216,4 +289,4 @@ const quadrance = {
     },
 };
 
-export const PROGRAMS_3D = [sixteen, drag, angles, laguerre, inversion, quadrance];
+export const PROGRAMS_3D = [sixteen, drag, angles, tangentPlane, corner, laguerre, inversion, quadrance];
