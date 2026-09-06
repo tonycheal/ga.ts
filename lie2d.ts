@@ -166,6 +166,23 @@ export function decode(a: GA, tol = 1e-9): Cycle {
     return {kind: "line", nx, ny, d: v.ei ?? 0};
 }
 
+/**
+ * The orientation direction of a decoded line is MINUS its normal.
+ *
+ * `decode` returns the honest description of *which* line this is —
+ * `{ p : p . n = d }` — and that is what `nx, ny` mean. But a line is the
+ * r -> infinity limit of a circle, and the direction playing the role of the
+ * circle's outward normal is `-n`, not `n`:
+ *
+ *   cycle(0, 1, +1) and line(0, 1, 0) are in oriented contact (X . Y = 0),
+ *   they touch at the origin, and the circle's outward normal there is (0,-1).
+ *
+ * The Laguerre shear agrees: adding d to every radius grows a positive circle
+ * outwards and moves this line from `d` to `d - delta`, i.e. along `-n`.
+ *
+ * Anything drawing or reasoning about which side a line faces wants `-n`.
+ */
+
 /** Drop the orientation coordinate to get the corresponding CGA 2D vector. */
 export function toCGA(a: GA): MultiVector {
     const {e1: x = 0, e2: y = 0, eo: o = 0, ei: i = 0} = a.vector;

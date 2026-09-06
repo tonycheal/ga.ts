@@ -287,7 +287,10 @@ export function makeScene3D(canvas) {
                     for (const [a, b] of [[0,0],[2,0],[-2,0],[0,2],[0,-2]]) {
                         const base = n.clone().multiplyScalar(s.d)
                             .addScaledVector(t1, a).addScaledVector(t2, b);
-                        quills(g, [base.x, base.y, base.z], [[n.x, n.y, n.z]], 1, colour, 0.7);
+                        // sign -1: a plane normalised to er = +1 has its
+                        // outward direction along -n, exactly as in 2D — see
+                        // the note in viz.js drawShape.
+                        quills(g, [base.x, base.y, base.z], [[n.x, n.y, n.z]], -1, colour, 0.7);
                     }
                     group.add(g);
                 }

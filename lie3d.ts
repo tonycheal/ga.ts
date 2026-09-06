@@ -161,6 +161,23 @@ export function decode(a: GA, tol = 1e-9): Cycle {
     return {kind: "plane", nx, ny, nz, d: v.ei ?? 0};
 }
 
+/**
+ * The orientation direction of a decoded plane is MINUS its normal.
+ *
+ * `decode` returns the honest description of *which* plane this is —
+ * `{ p : p . n = d }` — and that is what `nx, ny` mean. But a plane is the
+ * r -> infinity limit of a circle, and the direction playing the role of the
+ * circle's outward normal is `-n`, not `n`:
+ *
+ *   cycle(0, 1, 0, +1) and plane(0, 1, 0, 0) are in oriented contact (X . Y = 0),
+ *   they touch at the origin, and the sphere's outward normal there is (0,-1,0).
+ *
+ * The Laguerre shear agrees: adding d to every radius grows a positive sphere
+ * outwards and moves this plane from `d` to `d - delta`, i.e. along `-n`.
+ *
+ * Anything drawing or reasoning about which side a plane faces wants `-n`.
+ */
+
 /** Drop the orientation coordinate to get the corresponding CGA 3D vector. */
 export function toCGA(a: GA): MultiVector {
     const {e1: x = 0, e2: y = 0, e3: z = 0, eo: o = 0, ei: i = 0} = a.vector;

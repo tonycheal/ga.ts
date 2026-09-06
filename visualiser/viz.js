@@ -138,9 +138,18 @@ function drawShape(ctx, view, T, s) {
         ctx.stroke();
         ctx.setLineDash([]);
         if (s.arrows !== false) {
-            // same radial mark as a circle: the normal, nothing else
+            // Same radial mark as a circle — but along MINUS n, which is not a
+            // fudge. A line normalised to er = +1 is the r -> infinity limit of
+            // a circle whose outward normal at the point of contact is -n:
+            //   cycle(0, 1, +1) is in oriented contact with the line n = (0,1),
+            //   d = 0, they touch at the origin, and the circle's outward
+            //   normal there is (0,-1).
+            // The Laguerre shear says the same thing from the other side:
+            // offset(+d) grows a positive circle outwards and moves this line
+            // to d - delta, i.e. along -n. Drawing +n put the quills on the
+            // wrong side of every line in the visualiser.
             for (const k of [-1.6, 0, 1.6]) {
-                normalTick(ctx, T, p0x + dx * k, p0y + dy * k, s.nx, s.ny, stroke);
+                normalTick(ctx, T, p0x + dx * k, p0y + dy * k, -s.nx, -s.ny, stroke);
             }
         }
     }
