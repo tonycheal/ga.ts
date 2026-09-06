@@ -6,7 +6,7 @@
 
 import { GA } from "../dist/ga.js";
 import { LIE2D, cycle, point, line, inner, decode, normalise } from "../dist/lie2d.js";
-import { S2, solve, atAngle, PATTERNS, patternName, applyPattern } from "./solver.js";
+import { S2, solve, atAngle, flat, withRadius, patterns, PATTERNS, patternName, applyPattern } from "./solver.js";
 import { shape } from "./viz.js";
 
 const INPUT = "#6E8079";
@@ -250,4 +250,77 @@ const angles = {
     },
 };
 
-export const PROGRAMS = [eight, drag, angles, laguerre, inversion, quadrance, sameSign];
+/* ------------------------------------ 8. a line tangent to two circles */
+
+// The third constraint is not a third circle. "Be a line" is orthogonality to
+// the point at infinity, and it goes into the same list as the other two — so
+// the solver never learns that this is a different kind of question.
+const tangentLine = {
+    id: "tangentline",
+    name: "A line tangent to two circles",
+    blurb: "Third constraint: not another circle, but 'be flat'. Four orientation patterns give the two outer and the two inner tangents — same solver, no case analysis.",
+    steps: 4,
+    pingpong: false,
+    halfWidth: 8,
+    cx: 0, cy: 0,
+    frame(t) {
+        const i = Math.round(t * 3);
+        const pat = patterns(2)[i];
+        const base = [cycle(-3.5, 0, 2), cycle(3, 0, 1.2)];
+        const ins = applyPattern(base, pat);
+        const sols = solve([...ins.map((c) => atAngle(c, 0)), flat()]);
+        const kind = pat[0] * pat[1] > 0 ? "outer pair" : "inner (crossing) pair";
+        return {
+            shapes: [
+                ...ins.map((c, k) => shape(c, { stroke: INPUT, width: 2, label: `S${k + 1}` })),
+                ...sols.map((s, k) => shape(s, { stroke: k === 0 ? SOL_A : SOL_B, width: 2.5 })),
+            ],
+            note: `pattern ${patternName(pat)}   ·   ${kind}   ·   ${describeAll(sols)}`,
+        };
+    },
+};
+
+/* -------------------------------------------- 9. the rounded corner */
+
+// The classic fillet: given radius, tangent to two lines. Worth having because
+// it is the case where the quadratic DEGENERATES — the pencil meets the quadric
+// at the answer and at the point at infinity, so there is exactly one circle
+// per corner and nothing for a "which root" flag to choose. Apollonius's tan2GL
+// is linear for the same reason, and the original's flag on the Distance is
+// always cleared. That is geometry, not an implementation shortcut.
+const corner = {
+    id: "corner",
+    name: "The rounded corner",
+    blurb: "Radius given, tangent to two lines. The two line orientations pick the quadrant; the second root is the point at infinity, so there is nothing else to choose.",
+    pingpong: true,
+    halfWidth: 6,
+    frame(t) {
+        const theta = lerp(35, 145, t) * Math.PI / 180;
+        const L1 = line(0, 1, 0);                                // y = 0
+        const L2 = line(Math.sin(theta), -Math.cos(theta), 0);   // through the origin at theta
+        const r = 1.2;
+        const shapes = [
+            shape(L1, { stroke: INPUT, width: 2 }),
+            shape(L2, { stroke: INPUT, width: 2 }),
+        ];
+        let found = 0;
+        for (const [i, pat] of [[0, [1, 1]], [1, [1, -1]], [2, [-1, 1]], [3, [-1, -1]]]) {
+            const sols = solve([
+                ...applyPattern([L1, L2], pat).map((l) => atAngle(l, 0)),
+                withRadius(r),
+            ]);
+            found += sols.length;
+            for (const s of sols) {
+                shapes.push(shape(s, { stroke: i % 2 ? SOL_A : SOL_B, width: 2.5, centre: true }));
+            }
+        }
+        return {
+            shapes,
+            note: `angle ${(theta * 180 / Math.PI).toFixed(0)}°   ·   radius ${fixed(r, 2)}   ·   ` +
+                  `four patterns, ${found} circle${found === 1 ? "" : "s"} — one per corner`,
+        };
+    },
+};
+
+export const PROGRAMS = [eight, drag, angles, tangentLine, corner, laguerre, inversion, quadrance, sameSign];
+

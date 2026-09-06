@@ -4,10 +4,17 @@
 // the real thing, and when it lands this file should be deleted and the
 // programs pointed at it instead.
 //
-// The method is the one the roadmap describes: every constraint is "be
-// orthogonal to this vector", so stack the constraint rows, take the null
-// space (2-dimensional for n+1 constraints), and intersect that line with the
-// quadric X·X = 0.
+// The method is the one the roadmap describes, but done with the algebra
+// rather than with elimination. Every constraint is "be orthogonal to this
+// vector", so the pencil of candidate answers is the orthogonal complement of
+// S1 ^ S2 ^ ... — one bivector B, the CONTACT BLADE. Where that plane meets
+// the quadric X·X = 0 are the two answers, and they come out of B directly:
+//
+//     M = B / sqrt(B·B)     so that  M*M = 1
+//     X+ = 1/2 (v + M v)    X- = 1/2 (v - M v)     for v projected into B
+//
+// M is a reflection of the pencil in itself, and the two answers are its two
+// eigenvectors. That matters for more than elegance — see solve() below.
 //
 // Dimension-generic, because it has to be: the 3D programs use exactly the
 // same code over R(4,2) that the 2D ones use over R(3,2).
@@ -35,63 +42,85 @@ export function makeSolver(algebra, basis) {
             er: (S.vector.er ?? 0) * Math.cos((degrees * Math.PI) / 180),
         });
 
-    function nullspace(rows) {
-        const m = rows.map((r) => [...r]);
-        const pivots = [];
-        let r = 0;
-        for (let c = 0; c < n && r < m.length; c++) {
-            let best = r;
-            for (let i = r; i < m.length; i++)
-                if (Math.abs(m[i][c]) > Math.abs(m[best][c])) best = i;
-            if (Math.abs(m[best][c]) < 1e-10) continue;
-            [m[r], m[best]] = [m[best], m[r]];
-            const p = m[r][c];
-            for (let j = 0; j < n; j++) m[r][j] /= p;
-            for (let i = 0; i < m.length; i++)
-                if (i !== r) {
-                    const f = m[i][c];
-                    for (let j = 0; j < n; j++) m[i][j] -= f * m[r][j];
-                }
-            pivots.push(c);
-            r++;
-        }
-        const free = [...Array(n).keys()].filter((c) => !pivots.includes(c));
-        return free.map((f) => {
-            const v = new Array(n).fill(0);
-            v[f] = 1;
-            pivots.forEach((pc, pi) => { v[pc] = -m[pi][f]; });
-            return v;
-        });
+    /**
+     * Lower the index: the condition "X · S = 0" read as a covector, so that
+     * wedging the constraints gives the blade whose complement is the pencil.
+     * (`dual` in ga.ts is the metric-free complement, so the metric has to go
+     * in here rather than there.)
+     */
+    const lower = (S) =>
+        new GA(algebra, Object.fromEntries(basis.map((k, j) => [k, dot(unit(j), S)])));
+
+    /**
+     * The contact blade: the bivector whose plane is exactly the set of cycles
+     * satisfying every constraint. A continuous function of the inputs — no
+     * pivoting, no case analysis, no division.
+     */
+    function contactBlade(constraints) {
+        let T = lower(constraints[0]);
+        for (let i = 1; i < constraints.length; i++) T = T.wedge(lower(constraints[i]));
+        return T.dual();
     }
+
+    /** The scalar part of B*B. Positive means two real answers. */
+    const bladeSquared = (B) => B.gp(B).vector["e"] ?? 0;
+
+    const magnitude = (X) => Math.hypot(...basis.map((k) => X.vector[k] ?? 0));
 
     /**
      * Solve a list of constraint vectors. Returns 0, 1 or 2 cycles.
-     * The quadratic uses the stable form (both roots via +sqrt, the second as
-     * C/q) — see NewTanCode.ts, which had this right all along.
+     *
+     * WHICH root is which is the whole difficulty, and this is where it is
+     * settled. The obvious route — eliminate to a nullspace basis {a, b}, put
+     * X = s a + b and solve a quadratic — gives an answer whose LABELLING
+     * depends on which columns the elimination happened to pivot on, and on
+     * the sign of a square root taken in that accidental frame. Drag an input
+     * until a solution passes through the line case (radius through infinity)
+     * and the two answers change places: the branch bounces instead of
+     * carrying on through and coming back with the opposite orientation.
+     *
+     * The projection form has no such frame. `M` is built from the contact
+     * blade, which is a continuous function of the constraint list, so the two
+     * eigenvectors X+ and X- are continuous too, and nothing anywhere divides
+     * by eo — which is why the line case is not a special point for them. The
+     * one square root taken is sqrt(B·B), a positive quantity belonging to the
+     * blade, not a +/- choice belonging to a coordinate system.
+     *
+     * The labelling is therefore fixed by the ORDER and ORIENTATION of the
+     * constraints — the user's click order and flip flags — and by nothing
+     * else. Reverse two constraints and X+ and X- change places, as they
+     * should; move the geometry and they never do.
+     *
+     * The probe vector `v` only has to be one that does not project to zero;
+     * which one is picked changes the scale of the answers and nothing else,
+     * because a Lie vector is homogeneous.
      */
     function solve(constraints) {
-        const rows = constraints.map((V) => basis.map((_, j) => dot(unit(j), V)));
-        const ns = nullspace(rows);
-        if (ns.length !== 2) return [];
-        const [a, b] = ns.map(
-            (v) => new GA(algebra, Object.fromEntries(basis.map((k, i) => [k, v[i]])))
-        );
-        const A = dot(a, a), B = 2 * dot(a, b), C = dot(b, b);
-        const out = [];
-        if (Math.abs(A) < 1e-12) {
-            if (Math.abs(B) > 1e-12) out.push(a.scale(-C / B).add(b));
-        } else {
-            const D = B * B - 4 * A * C;
-            if (D < -1e-9) return [];
-            const s = Math.sqrt(Math.max(D, 0));
-            const q = -(B + Math.sign(B || 1) * s) / 2;
-            out.push(a.scale(q / A).add(b));
-            out.push(a.scale(Math.abs(q) > 1e-12 ? C / q : q / A).add(b));
+        const B = contactBlade(constraints);
+        const d = bladeSquared(B);
+        if (!(d > 1e-18)) return [];            // no real pair (or degenerate)
+        const M = B.scale(1 / Math.sqrt(d));
+        const Binv = B.scale(1 / d);
+
+        // Project each basis vector into the plane of B and keep the biggest.
+        let v = null;
+        for (let j = 0; j < n; j++) {
+            const p = unit(j).leftContract(B).gp(Binv).grade(1);
+            if (!v || magnitude(p) > magnitude(v)) v = p;
         }
+        if (!v || magnitude(v) < 1e-12) return [];
+
+        const Mv = M.gp(v).grade(1);
+        const out = [v.add(Mv).scale(0.5), v.add(Mv.scale(-1)).scale(0.5)];
+
+        // Drop the point at infinity. It is a perfectly good null vector and a
+        // perfectly good member of the pencil, and it is what the second
+        // "root" IS whenever the quadratic degenerates — a circle of given
+        // radius tangent to two lines has one answer per corner, not two.
         return out.filter((X) => {
-            const v = X.vector;
-            const euclid = basis.slice(0, n - 3).reduce((m, k) => Math.max(m, Math.abs(v[k] ?? 0)), 0);
-            return Math.abs(v.eo ?? 0) > 1e-9 || euclid > 1e-9;
+            const w = X.vector;
+            const euclid = basis.slice(0, n - 3).reduce((m, k) => Math.max(m, Math.abs(w[k] ?? 0)), 0);
+            return magnitude(X) > 1e-9 && (Math.abs(w.eo ?? 0) > 1e-9 || euclid > 1e-9);
         });
     }
 
@@ -113,7 +142,14 @@ export function makeSolver(algebra, basis) {
         });
     };
 
-    return { solve, atAngle, reverse, offset, dot, basis, algebra };
+    /** "The answer is a line (a plane in 3D)" — orthogonality to infinity. */
+    const flat = () => new GA(algebra, { ei: 1 });
+
+    /** "The answer has signed radius p" — X·er = -r and X·ei = -eo. */
+    const withRadius = (p) => new GA(algebra, { ei: p, er: -1 });
+
+    return { solve, atAngle, reverse, offset, flat, withRadius,
+             contactBlade, bladeSquared, dot, basis, algebra };
 }
 
 export const S2 = makeSolver(LIE2D, ["e1", "e2", "eo", "ei", "er"]);
@@ -123,6 +159,8 @@ export const S3 = makeSolver(LIE3D, ["e1", "e2", "e3", "eo", "ei", "er"]);
 export const solve = S2.solve;
 export const atAngle = S2.atAngle;
 export const reverse = S2.reverse;
+export const flat = S2.flat;
+export const withRadius = S2.withRadius;
 
 /** Sign patterns for k inputs: 2^k of them. */
 export const patterns = (k) =>

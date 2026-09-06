@@ -35,6 +35,7 @@ for the Lie sphere geometry finding that shapes the Apollonius work.
 | `RIPPLES.html` | the same thing in plain English, open it in a browser |
 | `PUREGEOMETRY.md` | design doc for the expression language |
 | `visualiser/` | web app: 2D and 3D, solid or projection — `npm install && npm run build` first |
+| `visualiser/solver.js` | stopgap Lie solver; holds the contact-blade root choice (ROADMAP) |
 | `equation-editor/index.html` | standalone symbol-entry helper |
 | `ga2.ts` | scratchpad, `console.log` dumps — not a test |
 | `test.ts` | **dead code**, an API that no longer exists — ignore it |

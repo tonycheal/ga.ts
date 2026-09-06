@@ -1,6 +1,6 @@
 # ROADMAP.md — ga.ts
 
-*Last reviewed 2026-09-05. Status of everything below is current as of that
+*Last reviewed 2026-09-06. Status of everything below is current as of that
 date; see "Where we are" for what exists and "Open threads" at the end for
 what is mid-flight.*
 
@@ -17,7 +17,7 @@ Working and tested:
 | Lie sphere 2D — oriented cycles | `lie2d.ts`, `test-lie2d.ts` | 66 assertions, all pass |
 | Lie sphere 3D — oriented spheres | `lie3d.ts`, `test-lie3d.ts` | 71 assertions, all pass |
 | Expression interpreter (`e1 ∧ e2 ∨ e3` etc.) | `interpreter.ts`, `test-interpreter.ts` | 49 assertions, all pass |
-| Visualiser, 2D and 3D | `visualiser/` | 13 programs, solid or projection, viewcube; not in the package |
+| Visualiser, 2D and 3D | `visualiser/` | 15 programs, solid or projection, viewcube; not in the package |
 | Symbol-entry helper app | `equation-editor/index.html` | standalone, works |
 
 The four bugs listed in the old `CLAUDE.md` (subscript ordering, dual bitmap
@@ -257,13 +257,90 @@ stopgap that exists only so the visualiser has something to drive it, pointing
 `tan3G` *before* generalising the dimension — the generic version is more
 convincing once there is something to check it against.
 
-Open question worth settling early: whether to solve the linear system with
-matrix elimination (as `NewTanCode.ts` does) or with GA operations — the
-constraint set `{X : X · Sᵢ = 0}` is the orthogonal complement of
-`S₁ ∧ S₂ ∧ S₃`, so the dual should hand back the pencil directly and reduce the
-problem to intersecting a line with the quadric. If that works it is a
-genuinely shorter derivation than the existing solver, which is the thing worth
-demonstrating.
+**Settled 2026-09-06: solve it with GA operations, not elimination.** This was
+listed here as an open question and it turned out to be the answer to the
+root-choosing problem as well, so it is written up in full under "Choosing the
+root" below. In short: the constraint set `{X : X · Sᵢ = 0}` is the orthogonal
+complement of `S₁ ∧ S₂ ∧ S₃` — one bivector `B`, the **contact blade** — and
+the two answers are the eigenvectors of `M = B / √(B·B)`, which squares to 1.
+No elimination, no pivoting, and no ± flag on a discriminant. Implemented in
+`visualiser/solver.js`; port it to `lsg.ts` as-is.
+
+Note the one place the metric has to be put in by hand: `dual` in `ga.ts` is
+the metric-free complement, so the constraints must be index-lowered
+(`Sⱼ ↦ Σ (eⱼ · S) eⱼ`) before wedging. Doing it the other way round silently
+gives a bivector that is not the pencil at all.
+
+## Choosing the root — settled 2026-09-06
+
+This is the thing `tan3G` does with `IF flags[2] THEN s = -s`: a bare sign flag
+on a square root, set once at construction from the click geometry and never
+questioned again. It works in practice, and it has a known failure — push a
+solution through the line case (radius through infinity) and the two answers
+change places, so the branch the user picked comes back on the other side.
+
+**Why it happens.** `s = √(B² − 4AC)` is a positive number, and the ± chooses
+between two roots of a quadratic written in a *frame* — the nullspace basis
+`{a, b}` that elimination happened to produce. Which columns get pivoted on
+changes as the configuration moves, so the frame changes discontinuously, and
+with it the meaning of "the + root". The sign flag is then correcting for an
+accident of the arithmetic rather than naming anything geometric.
+
+**The fix is to stop having a frame.** The pencil of candidate answers is a
+plane, and that plane is a single bivector:
+
+```
+    B  =  complement( Ŝ₁ ∧ Ŝ₂ ∧ … ∧ Ŝₙ₊₁ )        Ŝ = S with its index lowered
+    M  =  B / √(B·B)                              so that  M*M = 1
+    X± =  ½ (v ± M v)                             v = any probe projected into B
+```
+
+`M` is an involution of the pencil and `X±` are its two eigenvectors. Every
+step is a continuous function of the constraint list, so `X₊` stays `X₊`. The
+only square root taken is `√(B·B)`, which is a **positive scalar belonging to
+the blade** — not a ± choice belonging to a coordinate system. And nothing
+anywhere divides by `eo`, which is exactly why the line case stops being a
+special point.
+
+The labelling is then fixed by the **order and orientation of the constraint
+list** — the user's click order and flip flags — and by nothing else. Reverse
+two constraints and `X₊`/`X₋` swap, as they should. Move the geometry and they
+never do.
+
+**Checked**, 721 frames of the "drag" configuration (two unit circles, a third
+swept through them), measuring the solutions in the sign-free chart
+`(x/r, y/r, 1/r, d/r)` which stays finite through the line case:
+
+| ordering | roughness Σ\|2nd diff\| | discontinuities |
+|---|---|---|
+| pivoted elimination + ± flag | 4.22 / 4.11 | a jump of 2.0 at the line case |
+| contact blade | 0.118 / 0.118 | none |
+
+and the curvature `1/r` of one branch either side of the line case:
+
+```
+  y = -0.100  -0.050  -0.025   0.000   0.025   0.050   0.100
+       .0480   .0248   .0125   .0000  -.0128  -.0259  -.0531
+```
+
+— straight through zero. That *is* pushing through infinity: the circle grows,
+becomes a line, and comes back curving the other way with the opposite
+orientation. The radius sign flip is the correct answer, not a swap. The old
+ordering gives `.0480 .0248 .0125 0 -.0064 -.0259 -.0531` on one branch and a
+mirrored bounce on the other.
+
+The classical counts are unchanged: 8 circles tangent to 3 circles, 16 spheres
+tangent to 4 spheres, both re-checked against the new solver.
+
+**What this leaves for the flags.** Orientation flags still choose which of the
+`2ⁿ⁺¹` patterns you are solving — that is real geometric data and it stays. The
+*root* flag is what disappears: there is no longer anything for it to select
+that the constraint list does not already say. Which is a prediction about
+Apollonius, and it holds: for `CLLD` (radius given, tangent to two lines) the
+pencil meets the quadric at the answer **and at the point at infinity**, so
+there is exactly one circle per corner and no second root at all. `tan2GL`
+being linear is not an implementation shortcut — it is the geometry — and the
+original PDT's habit of always clearing the flag on the Distance is right.
 
 ### 2. The parallel experiment against Apollonius
 
@@ -372,20 +449,17 @@ cleaner thing for Apollonius to consume than a relative path across `~/Dev`.
 
 Picked up mid-flight, so here is the state that is not obvious from the code.
 
-**The root-ordering swap in the visualiser.** In "Drag a circle through a
-pair", the two solutions change colour as the moving circle crosses `y = 0`.
-Diagnosed, not fixed. The solver's ordering is stable — `root[0]` is always
-the negative-radius one — but *continuing a branch through the line case flips
-the sign of its radius*, so any ordering keyed on radius must swap branches
-exactly there. Sorting on a program-local reference direction would make the
-colours stable for that one demo; the general fix needs `frame(t)` to stop
-being memoryless so a solution can be matched to the previous frame's. Tony
-knows, and rates it "not a big issue in practice". Do not silently change the
-pure-function-of-`t` design to fix a colour.
+**The root-ordering swap in the visualiser — fixed 2026-09-06.** See
+"Choosing the root" above. The two solutions in "Drag a circle through a pair"
+no longer change places as the moving circle crosses `y = 0`, and `frame(t)`
+stayed a pure function of `t`: no memory, no previous-frame matching. What
+changed was the solver, not the programs.
 
-There is also genuine **monodromy** here: over a loop of configurations the two
-solutions can come back exchanged, so no global label ("upper", "inner")
-exists. Only continuity, or the cursor at creation.
+The monodromy caveat below still stands as stated, but it is smaller than it
+looked: the exchange needs a path that goes round a point where the two answers
+*collide* (`B·B = 0`), and at such a point they are equal, so no continuous
+labelling is being broken. Along any path on which both answers stay real and
+distinct, the contact-blade labelling is global.
 
 **Tony has a tweak list coming** for the visualiser. He reads and edits the
 code himself and commits straight to `main` — check `git log` before assuming
