@@ -342,6 +342,98 @@ there is exactly one circle per corner and no second root at all. `tan2GL`
 being linear is not an implementation shortcut — it is the geometry — and the
 original PDT's habit of always clearing the flag on the Distance is right.
 
+## Which one did you want — settled 2026-09-06
+
+Tony's, on a dog walk. "Choosing the root" above made the labelling *continuous*;
+this says which label the user meant, and it retires the flags altogether.
+
+**The rule.** Let `R` be the cycle orthogonal to all `n+1` inputs — the
+**radical circle** (radical sphere in 3D), the answer the "Sweep the angle"
+program lands on at 90°. For each click `Pᵢ` on input `Sᵢ`:
+
+```
+    eps_i = sign(P_i · R)         inside R -> -1, outside -> +1
+```
+
+Then set the input orientations to `eps`, solve, and of the two roots take the
+one whose contact points sit on those sides (equivalently, in 2D, the one with
+positive radius). That is the whole selection rule. No flags stored, no
+discriminant flag, no `PROCOrient`.
+
+**Why it is orientation-free.** `atAngle(S, 90°)` scales `er` by `cos 90° = 0`,
+so the 90° constraint vector does not mention the sign of the radius at all.
+Checked: the radical circle of three circles is bit-identical across all four
+sign patterns, and 90° and 270° give the same vector. This is the property the
+whole idea rests on, and it is why Tony's first point is right — `PROCOrient`,
+a triangle winding, is a 2D-only notion with no 3D counterpart, whereas
+inside/outside has one in every dimension.
+
+**Why it works.** Inversion in `R` fixes every input, because that is what
+orthogonal means — verified, all three come back unchanged. So it permutes the
+eight answers, and what it actually does is **swap the two roots of each sign
+pattern** (verified for all four patterns). Inversion in `R` also swaps inside
+and outside. So `R` is precisely the surface separating the two roots' contact
+points, which is why one inside/outside test per click recovers the *root* as
+well as the sign class.
+
+**What it delivers.** The map
+
+```
+    solution  ->  ( sign(t_1 · R), ..., sign(t_{n+1} · R) )      t_i = contact point
+```
+
+is a **bijection** onto `{±1}^(n+1)`. Measured:
+
+| case | solutions | distinct sign patterns | |
+|---|---|---|---|
+| three separate circles | 8 | 8 | bijective |
+| two circles and a line | 8 | 8 | bijective |
+| nearly collinear centres | 8 | 8 | bijective |
+| exactly collinear centres (R is the radical *axis*) | 8 | 8 | bijective |
+| **four spheres in 3D** | **16** | **16** | **bijective** |
+| three mutually overlapping circles | 8 | 1 | **fails** |
+
+Note the collinear row: `R` degenerates from a circle to the radical axis, and
+`sign(P · R)` needs no special case — "inside the circle" becomes "which side of
+the line" and the rule carries on. That is the argument for writing it as a Lie
+inner product rather than as a distance test.
+
+Note also that the sign triple carries strictly more than the orientation
+pattern `σ` does: `σ` takes only 4 distinct values over the 8 answers (four
+classes, two roots each), while the click signs take 8. The relation is exactly
+
+```
+    eps_i = sign(r_solution) · sigma_i
+```
+
+in every case measured, in 2D and 3D — which is the right shape, since a
+tangency pattern only means anything relative to the answer's own orientation.
+
+**The one failure is real, not a formulation problem.** When the radical circle
+has imaginary radius — three mutually *overlapping* circles, radical centre
+inside them — every click reads "outside" and the rule collapses to a single
+pattern. The reason is structural: inversion in an imaginary circle has no
+fixed circle and does not separate the plane, so there is no separating surface
+to test against. Real solutions still exist there, so this case needs a
+fallback (the cursor ranking already in this document is the obvious one).
+
+**Next, here**: a `radical(inputs)` helper — one linear solve, orthogonal to
+every input at 90° and to `er` — sitting alongside `solve` in `lsg.ts`. That is
+the whole of this repo's share of the job.
+
+**Next, elsewhere**: the open questions are all about *moving the inputs* —
+whether the shear fix is independent of how far time is wound back, what the
+all-lines case wants, where the rule feels wrong under a drag — and those get
+answered far faster in a thing you can drag than in a `frame(t)`. So they
+belong in `~/Dev/apollonius`; see
+`~/Dev/apollonius/notes/RADICAL-CIRCLE-SELECTION.md`. Do not grow an
+interactive geometry tool in this repo to chase them.
+
+If it lands, it replaces the flag-setting outright: `PROCRecalcFlags` and its
+whole family become one dot product per click. `NEXT-SESSION-tan3-flip.md` in
+that repo is about faithfully porting the *old* machinery — worth doing anyway,
+since it is a live bug, but most of what it describes would then go away.
+
 ### 2. The parallel experiment against Apollonius
 
 Tony's stated goal: run the GA formulation alongside the current `tan2G` /
