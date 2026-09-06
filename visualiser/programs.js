@@ -291,19 +291,26 @@ const tangentLine = {
 const corner = {
     id: "corner",
     name: "The rounded corner",
-    blurb: "Radius given, tangent to two lines. The two line orientations pick the quadrant; the second root is the point at infinity, so there is nothing else to choose.",
+    blurb: "Radius given, tangent to two lines. The orientations pick the quadrant; the second root is the point at infinity, so there is nothing else to choose. The moving line sweeps right through the other, and two of the circles go to infinity and come back.",
     pingpong: true,
     halfWidth: 6,
+    // The sweep goes right THROUGH the fixed line rather than stopping short
+    // of it. As the wedge closes, two of the four circles run off to infinity
+    // and come back on the other side, while the other two barely move — the
+    // fixed radius has to sit in a wedge whose incentre distance is r/sin(θ/2).
+    // Pingpong so the crossing is met twice and the loop has no seam: at 90°
+    // and 270° the moving line is the same line facing the other way, which
+    // would swap the colours if it wrapped.
     frame(t) {
-        const theta = lerp(35, 145, t) * Math.PI / 180;
+        const theta = lerp(90, 270, t) * Math.PI / 180;
         const L1 = line(0, 1, 0);                                // y = 0
         const L2 = line(Math.sin(theta), -Math.cos(theta), 0);   // through the origin at theta
         const r = 1.2;
         const shapes = [
             shape(L1, { stroke: INPUT, width: 2 }),
-            shape(L2, { stroke: INPUT, width: 2 }),
+            shape(L2, { stroke: HOT, width: 2 }),
         ];
-        let found = 0;
+        let found = 0, farthest = 0;
         for (const [i, pat] of [[0, [1, 1]], [1, [1, -1]], [2, [-1, 1]], [3, [-1, -1]]]) {
             const sols = solve([
                 ...applyPattern([L1, L2], pat).map((l) => atAngle(l, 0)),
@@ -311,13 +318,18 @@ const corner = {
             ]);
             found += sols.length;
             for (const s of sols) {
+                const d = decode(normalise(s));
+                if (d.kind === "circle") farthest = Math.max(farthest, Math.hypot(d.x, d.y));
                 shapes.push(shape(s, { stroke: i % 2 ? SOL_A : SOL_B, width: 2.5, centre: true }));
             }
         }
+        const deg = theta * 180 / Math.PI;
         return {
             shapes,
-            note: `angle ${(theta * 180 / Math.PI).toFixed(0)}°   ·   radius ${fixed(r, 2)}   ·   ` +
-                  `four patterns, ${found} circle${found === 1 ? "" : "s"} — one per corner`,
+            note: found === 0
+                ? `${deg.toFixed(0)}°   ·   the lines coincide — every answer has run off to infinity`
+                : `${deg.toFixed(0)}°   ·   radius ${fixed(r, 2)}   ·   ${found} circles, one per corner` +
+                  `   ·   farthest centre ${fixed(farthest, 1)}`,
         };
     },
 };

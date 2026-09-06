@@ -153,19 +153,23 @@ const tangentPlane = {
 const corner = {
     id: "corner3",
     name: "The rounded corner",
-    blurb: "Radius given, tangent to three planes. One sphere per octant — the corner of a box, rounded. The second root is the point at infinity, here as in 2D.",
+    blurb: "Radius given, tangent to three planes. One sphere per octant — the corner of a box, rounded. The third plane sweeps right through the first, and the spheres go to infinity and come back.",
     pingpong: true,
     halfWidth: 6,
     frame(t) {
-        const tilt = lerp(0, 35, t) * Math.PI / 180;
+        // 0 to 180: the third plane starts perpendicular to the other two and
+        // sweeps until it lies ON the first one at 90, then out the far side.
+        // Same behaviour as the 2D twin — the spheres in the closing wedges run
+        // off and return — with eight of them instead of four.
+        const tilt = lerp(0, 180, t) * Math.PI / 180;
         const P = [
             plane(0, 0, 1, 0),
             plane(0, 1, 0, 0),
             plane(Math.cos(tilt), 0, -Math.sin(tilt), 0),
         ];
         const r = 1.3;
-        const shapes = P.map((q) => shape(q, { stroke: INPUT, opacity: 0.1 }));
-        let found = 0;
+        const shapes = P.map((q, k) => shape(q, { stroke: k === 2 ? HOT : INPUT, opacity: 0.1 }));
+        let found = 0, farthest = 0;
         for (const pat of patterns(3)) {
             const sols = solve([
                 ...applyPattern(P, pat, reverse).map((q) => atAngle(q, 0)),
@@ -173,13 +177,18 @@ const corner = {
             ]);
             found += sols.length;
             for (const s of sols) {
+                const d = decode(normalise(s));
+                if (d.kind === "sphere") farthest = Math.max(farthest, Math.hypot(d.x, d.y, d.z));
                 shapes.push(shape(s, { stroke: pat[0] > 0 ? SOL_A : SOL_B, opacity: 0.2 }));
             }
         }
+        const deg = tilt * 180 / Math.PI;
         return {
             shapes,
-            note: `third plane tilted ${(tilt * 180 / Math.PI).toFixed(0)}°   ·   radius ${fixed(r, 2)}   ·   ` +
-                  `eight patterns, ${found} sphere${found === 1 ? "" : "s"} — one per octant`,
+            note: found === 0
+                ? `${deg.toFixed(0)}°   ·   the sweeping plane lies on the first — every answer has run off to infinity`
+                : `${deg.toFixed(0)}°   ·   radius ${fixed(r, 2)}   ·   ${found} spheres, one per octant` +
+                  `   ·   farthest centre ${fixed(farthest, 1)}`,
         };
     },
 };
